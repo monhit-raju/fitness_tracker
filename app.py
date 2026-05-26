@@ -324,6 +324,11 @@ def process_video_file(input_path, exercise_type, reps_goal, sets_goal_val):
 
 
 # ── Routes ─────────────────────────────────────────────────────────────────────
+@app.route('/health')
+def health():
+    return jsonify({'status': 'ok'}), 200
+
+
 @app.route('/')
 def index():
     return render_template('index.html')
