@@ -67,10 +67,17 @@ def _set(**kwargs):
         _state.update(kwargs)
 
 # ── Camera helpers ─────────────────────────────────────────────────────────────
+# On Railway/cloud there is no webcam — detect this gracefully
+IS_CLOUD = os.environ.get('RAILWAY_ENVIRONMENT') or os.environ.get('RENDER') or not os.environ.get('DISPLAY', True)
+
 def initialize_camera():
+    if IS_CLOUD:
+        return None
     with _state_lock:
         if _state['camera'] is None:
-            _state['camera'] = cv2.VideoCapture(0)
+            cam = cv2.VideoCapture(0)
+            if cam.isOpened():
+                _state['camera'] = cam
     return _get('camera')
 
 def release_camera():
@@ -385,6 +392,16 @@ def dashboard_data():
 
 @app.route('/video_feed')
 def video_feed():
+    if IS_CLOUD:
+        # No webcam on cloud — return a single placeholder JPEG
+        import numpy as np
+        placeholder = np.zeros((480, 640, 3), dtype=np.uint8)
+        cv2.putText(placeholder, "Live camera not available", (80, 220),
+                    cv2.FONT_HERSHEY_DUPLEX, 0.8, (200, 200, 200), 2)
+        cv2.putText(placeholder, "Use Video Upload mode instead", (70, 270),
+                    cv2.FONT_HERSHEY_DUPLEX, 0.7, (100, 200, 255), 2)
+        _, buf = cv2.imencode('.jpg', placeholder)
+        return Response(buf.tobytes(), mimetype='image/jpeg')
     initialize_camera()
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
@@ -534,7 +551,7 @@ def profile():
 
 
 if __name__ == '__main__':
-    logger.info("Starting the Flask application on http://127.0.0.1:5000")
-    print("Starting AI Sports Talent app...")
-    print("Open http://127.0.0.1:5000 in your browser")
-    app.run(debug=True, threaded=True)
+    port = int(os.environ.get('PORT', 5000))
+    debug = not IS_CLOUD
+    logger.info(f"Starting app on port {port}")
+    app.run(host='0.0.0.0', port=port, debug=debug, threaded=True)
