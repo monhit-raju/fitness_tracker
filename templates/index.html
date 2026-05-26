@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Sports Trainer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="toast" class="toast"></div>
+
+    <div class="container">
+        <header>
+            <h1>🏃 AI Sports Trainer</h1>
+            <p>AI-powered exercise tracking and real-time feedback</p>
+            <nav class="main-nav">
+                <ul>
+                    <li><a href="/" class="nav-link active">Home</a></li>
+                    <li><a href="/dashboard" class="nav-link">Dashboard</a></li>
+                </ul>
+            </nav>
+        </header>
+
+        <div class="main-content">
+            <div class="video-container">
+                <img id="live-video" src="{{ url_for('video_feed') }}" alt="Live Camera Feed">
+                <video id="processed-video" controls style="display:none;"></video>
+                <div id="video-overlay" class="video-overlay" style="display:none;">
+                    <div class="spinner"></div>
+                    <p>Processing video…</p>
+                </div>
+            </div>
+
+            <div class="controls">
+                <!-- Mode -->
+                <div class="mode-selection card">
+                    <h3>Mode</h3>
+                    <label class="mode-option">
+                        <input type="radio" name="mode" value="live" checked> Live Camera
+                    </label>
+                    <label class="mode-option">
+                        <input type="radio" name="mode" value="upload"> Video Upload
+                    </label>
+                </div>
+
+                <!-- Upload -->
+                <div class="upload-section card" style="display:none;">
+                    <div class="input-group">
+                        <label for="video-file">Select Video File:</label>
+                        <input type="file" id="video-file" accept="video/mp4,video/avi,video/mov,video/mkv,video/webm">
+                    </div>
+                </div>
+
+                <!-- Exercise selection -->
+                <div class="exercise-selection card">
+                    <h2>Select Exercise</h2>
+                    <div class="exercise-options">
+                        <div class="exercise-option" data-exercise="squat">
+                            <img src="{{ url_for('static', filename='images/squat.png') }}" alt="Squat">
+                            <h3>Squat</h3>
+                        </div>
+                        <div class="exercise-option" data-exercise="push_up">
+                            <img src="{{ url_for('static', filename='images/push_up.png') }}" alt="Push Up">
+                            <h3>Push Up</h3>
+                        </div>
+                        <div class="exercise-option" data-exercise="hammer_curl">
+                            <img src="{{ url_for('static', filename='images/hammer_curl.png') }}" alt="Hammer Curl">
+                            <h3>Hammer Curl</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Config -->
+                <div class="exercise-config card">
+                    <h2>Configure Workout</h2>
+                    <div class="config-inputs">
+                        <div class="input-group">
+                            <label for="sets">Sets:</label>
+                            <input type="number" id="sets" min="1" max="10" value="3">
+                        </div>
+                        <div class="input-group">
+                            <label for="reps">Reps per Set:</label>
+                            <input type="number" id="reps" min="1" max="50" value="10">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Buttons -->
+                <div class="action-buttons">
+                    <button id="start-btn" class="btn primary-btn">▶ Start</button>
+                    <button id="stop-btn" class="btn secondary-btn" disabled>■ Stop</button>
+                    <button id="upload-btn" class="btn primary-btn" style="display:none;">⬆ Analyze Video</button>
+                </div>
+
+                <!-- Status -->
+                <div class="workout-status card">
+                    <h2>Live Status</h2>
+                    <div class="status-display">
+                        <div class="status-item">
+                            <span class="status-label">Exercise</span>
+                            <span id="current-exercise" class="status-value">—</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">Set</span>
+                            <span id="current-set" class="status-value">0 / 0</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">Reps</span>
+                            <span id="current-reps" class="status-value">0 / 0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>

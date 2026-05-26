@@ -1,0 +1,38 @@
+# Environment variables — NEVER commit this
+.env
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+venv/
+env/
+.venv/
+ENV/
+
+# Generated / uploaded videos — too large for GitHub
+static/videos/*.mp4
+static/videos/*.avi
+static/videos/*.mov
+static/videos/*.mkv
+
+# Keep the videos folder itself
+!static/videos/.gitkeep
+
+# IDE / OS files
+.vscode/
+.idea/
+*.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
