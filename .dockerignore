@@ -1,0 +1,13 @@
+.env
+.git
+.gitignore
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+static/videos/*.mp4
+static/videos/*.avi
+static/videos/*.mov
+README.md
+SETUP.md
+main.py
