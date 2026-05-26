@@ -90,35 +90,6 @@ header p {
     display: block;
 }
 
-.cloud-placeholder {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    background: #1a1a2e;
-    color: #ccc;
-    min-height: 360px;
-    padding: 40px 20px;
-    text-align: center;
-    gap: 10px;
-}
-
-.cloud-placeholder .placeholder-icon {
-    font-size: 4rem;
-    margin-bottom: 10px;
-}
-
-.cloud-placeholder h3 {
-    color: #64b5f6;
-    font-size: 1.4rem;
-}
-
-.cloud-placeholder p {
-    color: #aaa;
-    font-size: 0.95rem;
-    max-width: 300px;
-}
-
 .video-overlay {
     position: absolute;
     inset: 0;
