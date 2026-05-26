@@ -32,25 +32,31 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // ── Mode toggle ───────────────────────────────────────────────────────────
-    modeRadios.forEach(radio => {
-        radio.addEventListener('change', function () {
-            currentMode = this.value;
-            if (currentMode === 'live') {
-                uploadSection.style.display = 'none';
-                liveVideo.style.display = 'block';
-                processedVideo.style.display = 'none';
-                startBtn.style.display = '';
-                uploadBtn.style.display = 'none';
-                videoFileInput.value = '';
-            } else {
-                uploadSection.style.display = 'block';
-                liveVideo.style.display = 'none';
-                processedVideo.style.display = 'none';
-                startBtn.style.display = 'none';
-                uploadBtn.style.display = '';
-            }
+    // On cloud IS_CLOUD=true so mode radios don't exist — skip
+    if (!IS_CLOUD) {
+        modeRadios.forEach(radio => {
+            radio.addEventListener('change', function () {
+                currentMode = this.value;
+                if (currentMode === 'live') {
+                    uploadSection.style.display = 'none';
+                    if (liveVideo) liveVideo.style.display = 'block';
+                    if (processedVideo) processedVideo.style.display = 'none';
+                    if (startBtn) startBtn.style.display = '';
+                    if (uploadBtn) uploadBtn.style.display = 'none';
+                    videoFileInput.value = '';
+                } else {
+                    uploadSection.style.display = 'block';
+                    if (liveVideo) liveVideo.style.display = 'none';
+                    if (processedVideo) processedVideo.style.display = 'none';
+                    if (startBtn) startBtn.style.display = 'none';
+                    if (uploadBtn) uploadBtn.style.display = '';
+                }
+            });
         });
-    });
+    } else {
+        // Cloud: always in upload mode
+        currentMode = 'upload';
+    }
 
     // ── Exercise selection ────────────────────────────────────────────────────
     exerciseOptions.forEach(opt => {
@@ -151,11 +157,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (videoOverlay) videoOverlay.style.display = 'none';
 
                 if (data.success) {
+                    const cloudPlaceholder = document.getElementById('cloud-placeholder');
+                    if (cloudPlaceholder) cloudPlaceholder.style.display = 'none';
                     processedVideo.src = data.video_url;
                     processedVideo.load();
                     processedVideo.play().catch(() => {});
                     processedVideo.style.display = 'block';
-                    liveVideo.style.display = 'none';
+                    if (liveVideo) liveVideo.style.display = 'none';
                     currentExerciseEl.textContent = selectedExercise.replace(/_/g, ' ').toUpperCase();
                     currentSetEl.textContent = 'Done';
                     currentRepsEl.textContent = 'Done';

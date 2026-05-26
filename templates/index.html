@@ -10,6 +10,9 @@
 <body>
     <div id="toast" class="toast"></div>
 
+    <!-- Pass cloud flag to JS -->
+    <script>const IS_CLOUD = {{ 'true' if is_cloud else 'false' }};</script>
+
     <div class="container">
         <header>
             <h1>🏃 AI Sports Trainer</h1>
@@ -24,16 +27,29 @@
 
         <div class="main-content">
             <div class="video-container">
+                {% if is_cloud %}
+                <!-- Cloud: only show upload result video -->
+                <video id="processed-video" controls style="display:none; width:100%;"></video>
+                <div id="cloud-placeholder" class="cloud-placeholder">
+                    <div class="placeholder-icon">📹</div>
+                    <h3>Video Upload Mode</h3>
+                    <p>Live camera is not available on the cloud.</p>
+                    <p>Upload a workout video below to analyse it.</p>
+                </div>
+                {% else %}
+                <!-- Local: show live feed + processed video -->
                 <img id="live-video" src="{{ url_for('video_feed') }}" alt="Live Camera Feed">
                 <video id="processed-video" controls style="display:none;"></video>
+                {% endif %}
                 <div id="video-overlay" class="video-overlay" style="display:none;">
                     <div class="spinner"></div>
-                    <p>Processing video…</p>
+                    <p>Analysing video… please wait</p>
                 </div>
             </div>
 
             <div class="controls">
-                <!-- Mode -->
+                {% if not is_cloud %}
+                <!-- Mode selection — local only -->
                 <div class="mode-selection card">
                     <h3>Mode</h3>
                     <label class="mode-option">
@@ -43,11 +59,13 @@
                         <input type="radio" name="mode" value="upload"> Video Upload
                     </label>
                 </div>
+                {% endif %}
 
-                <!-- Upload -->
-                <div class="upload-section card" style="display:none;">
+                <!-- Upload section -->
+                <div class="upload-section card" {% if not is_cloud %}style="display:none;"{% endif %}>
+                    <h3>Upload Workout Video</h3>
                     <div class="input-group">
-                        <label for="video-file">Select Video File:</label>
+                        <label for="video-file">Select Video File (mp4, avi, mov):</label>
                         <input type="file" id="video-file" accept="video/mp4,video/avi,video/mov,video/mkv,video/webm">
                     </div>
                 </div>
@@ -88,9 +106,13 @@
 
                 <!-- Buttons -->
                 <div class="action-buttons">
+                    {% if not is_cloud %}
                     <button id="start-btn" class="btn primary-btn">▶ Start</button>
                     <button id="stop-btn" class="btn secondary-btn" disabled>■ Stop</button>
-                    <button id="upload-btn" class="btn primary-btn" style="display:none;">⬆ Analyze Video</button>
+                    {% endif %}
+                    <button id="upload-btn" class="btn primary-btn" {% if not is_cloud %}style="display:none;"{% endif %}>
+                        ⬆ Analyse Video
+                    </button>
                 </div>
 
                 <!-- Status -->
