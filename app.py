@@ -56,6 +56,8 @@ _state = {
     'video_writer': None,
     'video_path': None,
     'last_logged_rep': 0,
+    'current_warnings': [],
+    'current_stage': None,
 }
 
 def _get(key):
@@ -127,7 +129,7 @@ def generate_frames():
                     if counter > last_rep and workout_id:
                         workout_logger.log_analysis_detail(workout_id, counter, angle, stage)
                         _set(last_logged_rep=counter)
-                    _set(exercise_counter=counter)
+                    _set(exercise_counter=counter, current_warnings=exercise.form_warnings, current_stage=stage)
 
                 elif ex_type == "push_up":
                     counter, angle, stage = exercise.track_push_up(results.pose_landmarks.landmark, frame)
@@ -135,7 +137,7 @@ def generate_frames():
                     if counter > last_rep and workout_id:
                         workout_logger.log_analysis_detail(workout_id, counter, angle, stage)
                         _set(last_logged_rep=counter)
-                    _set(exercise_counter=counter)
+                    _set(exercise_counter=counter, current_warnings=exercise.form_warnings, current_stage=stage)
 
                 elif ex_type == "hammer_curl":
                     (cr, ar, cl, al, wr, wl, pr, pl, sr, sl) = exercise.track_hammer_curl(
@@ -149,7 +151,7 @@ def generate_frames():
                         }
                         workout_logger.log_analysis_detail(workout_id, new_counter, None, None, details)
                         _set(last_logged_rep=new_counter)
-                    _set(exercise_counter=new_counter)
+                    _set(exercise_counter=new_counter, current_warnings=exercise.form_warnings, current_stage=f"R: {sr}, L: {sl}")
 
                 exercise_info = get_exercise_info(ex_data['type'])
                 draw_text_with_background(frame, f"Exercise: {exercise_info.get('name', 'N/A')}", (40, 50),
@@ -340,6 +342,7 @@ def dashboard():
         recent_workouts = workout_logger.get_recent_workouts(5)
         weekly_stats = workout_logger.get_weekly_stats()
         user_stats = workout_logger.get_user_stats()
+        pr_records = workout_logger.get_personal_records()
 
         formatted_workouts = []
         for w in recent_workouts:
@@ -353,13 +356,19 @@ def dashboard():
             })
 
         weekly_workout_count = sum(v['workout_count'] for v in weekly_stats.values())
+        max_dur = pr_records.get('max_duration', 0)
+        formatted_max_dur = f"{max_dur // 60}:{max_dur % 60:02d}"
 
         return render_template('dashboard.html',
                                recent_workouts=formatted_workouts,
                                weekly_workouts=weekly_workout_count,
                                total_workouts=user_stats['total_workouts'],
                                total_exercises=user_stats['total_exercises'],
-                               streak_days=user_stats['streak_days'])
+                               streak_days=user_stats['streak_days'],
+                               pr_squats=pr_records.get('squat', 0),
+                               pr_pushups=pr_records.get('push_up', 0),
+                               pr_curls=pr_records.get('hammer_curl', 0),
+                               pr_duration=formatted_max_dur)
     except Exception as e:
         logger.error(f"Error in dashboard: {e}")
         traceback.print_exc()
@@ -385,11 +394,13 @@ def dashboard_data():
 
         ex_labels = [r['exercise_type'].replace('_', ' ').title() for r in exercise_dist]
         ex_values = [r['count'] for r in exercise_dist]
+        yearly_activity = workout_logger.get_yearly_activity()
 
         return jsonify({
             'success': True,
             'weekly_activity': {'labels': days, 'values': weekly_values},
-            'exercise_distribution': {'labels': ex_labels, 'values': ex_values}
+            'exercise_distribution': {'labels': ex_labels, 'values': ex_values},
+            'yearly_activity': yearly_activity
         })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
@@ -489,7 +500,7 @@ def stop_exercise():
         completed_sets = sets_done + (1 if ex_counter > 0 else 0)
         workout_logger.update_workout_summary(workout_id, completed_sets, duration, vid_path)
 
-    _set(exercise_running=False, current_workout_id=None, video_path=None, video_writer=None)
+    _set(exercise_running=False, current_workout_id=None, video_path=None, video_writer=None, current_warnings=[], current_stage=None)
     return jsonify({'success': True})
 
 
@@ -502,6 +513,8 @@ def get_status():
             'current_set': _state['sets_completed'] + 1 if _state['exercise_running'] else 0,
             'total_sets': _state['sets_goal'],
             'rep_goal': _state['exercise_goal'],
+            'warnings': _state.get('current_warnings', []),
+            'stage': _state.get('current_stage', None),
         })
 
 

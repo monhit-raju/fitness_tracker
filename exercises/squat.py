@@ -10,25 +10,31 @@ class Squat:
         self.counter = 0
         self.stage   = None          # None -> "up" -> "down" -> "up"
 
-        # ── Knee flexion thresholds (hip → knee → ankle) ───────────────────────
-        # Standing straight: ~170°+   Parallel squat: ~90°   Deep squat: <90°
-        self.angle_up   = 165        # above this = standing
-        self.angle_down = 95         # below this = squat depth reached
+        # Calibration state variables
+        self.calibrated = False
+        self.calibration_frames = []
+        self.calibration_limit = 25
+        self.standing_baseline = 170.0
+
+        # Flexion thresholds (hip → knee → ankle)
+        self.angle_up   = 165        # standing (calibrated dynamically)
+        self.angle_down = 95         # squat target depth (calibrated dynamically)
+
+        # Hysteresis frame counts
+        self._up_frames_count = 0
+        self._down_frames_count = 0
 
         # ── Form thresholds ────────────────────────────────────────────────────
         # Torso lean: shoulder → hip → knee
-        # Normal squat allows some forward lean (~140°+). Flag only excessive lean.
         self.torso_lean_min = 130
 
-        # Knee symmetry: difference between L and R knee angles
-        # >25° difference suggests one knee caving or uneven weight
+        # Knee symmetry
         self.knee_symmetry_threshold = 25
 
-        # Heel rise: ankle visibility — if ankle y-coord rises significantly
-        # compared to knee, heels are lifting
-        self.heel_rise_threshold = 0.15  # fraction of frame height
+        # Heel rise
+        self.heel_rise_threshold = 0.15
 
-        # Angle smoothing buffer (reduces jitter from MediaPipe noise)
+        # Angle smoothing buffer
         self._angle_buf = deque(maxlen=5)
 
         self.form_warnings = []
@@ -66,6 +72,30 @@ class Squat:
         self._angle_buf.append(primary_angle)
         smooth_angle = float(np.mean(self._angle_buf))
 
+        # ── Dynamic Posture Calibration ────────────────────────────────────────
+        if not self.calibrated:
+            self.calibration_frames.append(smooth_angle)
+            scale = max(1.0, min(1.8, h / 960.0))
+            
+            # Show calibration warning overlay
+            self.form_warnings = ["Calibrating... Stand straight"]
+            draw_warning_panel(frame, self.form_warnings)
+            
+            # Left-side calibration info
+            draw_info_panel(frame, [
+                ("Reps",  "Calibrating",  (200, 200, 200)),
+                ("Stage", "Calibrating",  (200, 200, 200)),
+                ("Progress", f"{len(self.calibration_frames) * 4}%", (0, 220, 255)),
+            ], x_offset=10, y_start=220)
+            
+            if len(self.calibration_frames) >= self.calibration_limit:
+                self.standing_baseline = float(np.mean(self.calibration_frames))
+                self.angle_up = min(170.0, self.standing_baseline - 10.0)
+                self.angle_down = self.standing_baseline - 70.0
+                self.calibrated = True
+            
+            return self.counter, smooth_angle, "Calibrating"
+
         # ── 2. Torso lean — shoulder → hip → knee ─────────────────────────────
         torso_l = calculate_angle(shoulder_l, hip_l, knee_l)
         torso_r = calculate_angle(shoulder_r, hip_r, knee_r)
@@ -77,26 +107,31 @@ class Squat:
         # ── 4. Heel rise — compare ankle y vs knee y ──────────────────────────
         _, ankle_y_l = raw(27);  _, knee_y_l = raw(25)
         _, ankle_y_r = raw(28);  _, knee_y_r = raw(26)
-        # In image coords y increases downward, so ankle should be BELOW knee
-        # If ankle_y < knee_y the heel has risen
         heel_rise_l = (knee_y_l - ankle_y_l) > self.heel_rise_threshold
         heel_rise_r = (knee_y_r - ankle_y_r) > self.heel_rise_threshold
 
-        # ── Draw skeleton ──────────────────────────────────────────────────────
+        # ── Draw skeleton (dynamically scaled) ──────────────────────────────────
+        scale = max(1.0, min(1.8, h / 960.0))
+        thickness_skeleton = max(1, int(2 * scale))
+        joint_radius = max(3, int(7 * scale))
+        ring_thickness = max(1, int(1 * scale))
+        text_scale = 0.55 * scale
+        text_thickness = max(1, int(2 * scale))
+
         torso_ok    = torso_avg >= self.torso_lean_min
         torso_color = (0, 220, 0) if torso_ok else (0, 140, 255)
 
         # Torso lines
-        cv2.line(frame, tuple(shoulder_l), tuple(hip_l),   torso_color,    2, cv2.LINE_AA)
-        cv2.line(frame, tuple(shoulder_r), tuple(hip_r),   torso_color,    2, cv2.LINE_AA)
+        cv2.line(frame, tuple(shoulder_l), tuple(hip_l),   torso_color,    thickness_skeleton, cv2.LINE_AA)
+        cv2.line(frame, tuple(shoulder_r), tuple(hip_r),   torso_color,    thickness_skeleton, cv2.LINE_AA)
 
         # Left leg — purple
-        cv2.line(frame, tuple(hip_l),  tuple(knee_l),  (178, 102, 255), 2, cv2.LINE_AA)
-        cv2.line(frame, tuple(knee_l), tuple(ankle_l), (178, 102, 255), 2, cv2.LINE_AA)
+        cv2.line(frame, tuple(hip_l),  tuple(knee_l),  (178, 102, 255), thickness_skeleton, cv2.LINE_AA)
+        cv2.line(frame, tuple(knee_l), tuple(ankle_l), (178, 102, 255), thickness_skeleton, cv2.LINE_AA)
 
         # Right leg — sky blue
-        cv2.line(frame, tuple(hip_r),  tuple(knee_r),  (51, 153, 255), 2, cv2.LINE_AA)
-        cv2.line(frame, tuple(knee_r), tuple(ankle_r), (51, 153, 255), 2, cv2.LINE_AA)
+        cv2.line(frame, tuple(hip_r),  tuple(knee_r),  (51, 153, 255), thickness_skeleton, cv2.LINE_AA)
+        cv2.line(frame, tuple(knee_r), tuple(ankle_r), (51, 153, 255), thickness_skeleton, cv2.LINE_AA)
 
         # Joints
         for coord, color in [
@@ -105,25 +140,33 @@ class Squat:
             (knee_l,  (178, 102, 255)),(knee_r,  (51, 153, 255)),
             (ankle_l, (178, 102, 255)),(ankle_r, (51, 153, 255)),
         ]:
-            cv2.circle(frame, tuple(coord), 7, color, -1)
-            cv2.circle(frame, tuple(coord), 7, (255,255,255), 1)  # white ring
+            cv2.circle(frame, tuple(coord), joint_radius, color, -1, cv2.LINE_AA)
+            cv2.circle(frame, tuple(coord), joint_radius, (255,255,255), ring_thickness, cv2.LINE_AA)  # white ring
 
         # Angle labels near knees
         cv2.putText(frame, f'{int(knee_angle_l)}',
-                    (knee_l[0] + 10, knee_l[1] - 10),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 0), 2, cv2.LINE_AA)
+                    (knee_l[0] + int(10 * scale), knee_l[1] - int(10 * scale)),
+                    cv2.FONT_HERSHEY_SIMPLEX, text_scale, (255, 255, 0), text_thickness, cv2.LINE_AA)
         cv2.putText(frame, f'{int(knee_angle_r)}',
-                    (knee_r[0] + 10, knee_r[1] - 10),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 0), 2, cv2.LINE_AA)
+                    (knee_r[0] + int(10 * scale), knee_r[1] - int(10 * scale)),
+                    cv2.FONT_HERSHEY_SIMPLEX, text_scale, (255, 255, 0), text_thickness, cv2.LINE_AA)
 
-        # ── Stage machine — up → down → up ────────────────────────────────────
-        # Rep counted when returning to standing (down → up transition)
+        # ── Stage machine with Hysteresis ─────────────────────────────────────
         if smooth_angle > self.angle_up:
-            if self.stage == "down":
-                self.counter += 1
-            self.stage = "up"
+            self._up_frames_count += 1
+            self._down_frames_count = 0
+            if self._up_frames_count >= 3:
+                if self.stage == "down":
+                    self.counter += 1
+                self.stage = "up"
         elif smooth_angle < self.angle_down:
-            self.stage = "down"
+            self._down_frames_count += 1
+            self._up_frames_count = 0
+            if self._down_frames_count >= 3:
+                self.stage = "down"
+        else:
+            self._up_frames_count = 0
+            self._down_frames_count = 0
 
         stage_label = {
             None:   "Get Ready",
@@ -155,7 +198,7 @@ class Squat:
             ("Reps",  self.counter,  (0, 220, 255)),
             ("Stage", stage_label,   stage_color),
             ("Angle", f"{int(smooth_angle)}", (255, 255, 0)),
-        ], x_offset=10, y_start=160)
+        ], x_offset=10, y_start=220)
 
         return self.counter, smooth_angle, stage_label
 

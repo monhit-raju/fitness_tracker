@@ -26,56 +26,66 @@ class PoseEstimator:
                 self.draw_hammerl_curl_lines(frame, results.pose_landmarks.landmark)
 
         return results
-    def draw_hammerl_curl_lines(self, frame, landmarks):
 
-        shoulder_right = [int(landmarks[11].x * frame.shape[1]), int(landmarks[11].y * frame.shape[0])]
-        elbow_right = [int(landmarks[13].x * frame.shape[1]), int(landmarks[13].y * frame.shape[0])]
-        hip_right = [int(landmarks[23].x * frame.shape[1]), int(landmarks[23].y * frame.shape[0])]
-        wrist_right = [int(landmarks[15].x * frame.shape[1]), int(landmarks[15].y * frame.shape[0])]
+    def draw_hammerl_curl_lines(self, frame, landmarks):
+        h, w = frame.shape[:2]
+        scale = max(1.0, min(1.8, h / 960.0))
+        thickness = max(2, int(4 * scale))
+
+        shoulder_right = [int(landmarks[11].x * w), int(landmarks[11].y * h)]
+        elbow_right = [int(landmarks[13].x * w), int(landmarks[13].y * h)]
+        hip_right = [int(landmarks[23].x * w), int(landmarks[23].y * h)]
+        wrist_right = [int(landmarks[15].x * w), int(landmarks[15].y * h)]
 
         # Left arm landmarks (shoulder, elbow, hip, wrist)
-        shoulder_left = [int(landmarks[12].x * frame.shape[1]), int(landmarks[12].y * frame.shape[0])]
-        elbow_left = [int(landmarks[14].x * frame.shape[1]), int(landmarks[14].y * frame.shape[0])]
-        hip_left = [int(landmarks[24].x * frame.shape[1]), int(landmarks[24].y * frame.shape[0])]
-        wrist_left = [int(landmarks[16].x * frame.shape[1]), int(landmarks[16].y * frame.shape[0])]
+        shoulder_left = [int(landmarks[12].x * w), int(landmarks[12].y * h)]
+        elbow_left = [int(landmarks[14].x * w), int(landmarks[14].y * h)]
+        hip_left = [int(landmarks[24].x * w), int(landmarks[24].y * h)]
+        wrist_left = [int(landmarks[16].x * w), int(landmarks[16].y * h)]
 
-        # Draw lines with improved style
-        cv2.line(frame, shoulder_left, elbow_left, (0, 0, 255), 4,2)
-        cv2.line(frame, elbow_left, wrist_left, (0, 0, 255), 4,2)
+        # Draw lines with improved style (aliased and scaled)
+        cv2.line(frame, tuple(shoulder_left), tuple(elbow_left), (0, 0, 255), thickness, cv2.LINE_AA)
+        cv2.line(frame, tuple(elbow_left), tuple(wrist_left), (0, 0, 255), thickness, cv2.LINE_AA)
 
-        cv2.line(frame, shoulder_right, elbow_right, (0, 0, 255), 4,2)
-        cv2.line(frame, elbow_right, wrist_right, (0, 0, 255), 4,2)
-
-
+        cv2.line(frame, tuple(shoulder_right), tuple(elbow_right), (0, 0, 255), thickness, cv2.LINE_AA)
+        cv2.line(frame, tuple(elbow_right), tuple(wrist_right), (0, 0, 255), thickness, cv2.LINE_AA)
 
     def draw_squat_lines(self, frame, landmarks):
+        h, w = frame.shape[:2]
+        scale = max(1.0, min(1.8, h / 960.0))
+        thickness = max(1, int(2 * scale))
+
         # Squat specific lines (hip, knee, shoulder)
-        hip = [int(landmarks[23].x * frame.shape[1]), int(landmarks[23].y * frame.shape[0])]
-        knee = [int(landmarks[25].x * frame.shape[1]), int(landmarks[25].y * frame.shape[0])]
-        shoulder = [int(landmarks[11].x * frame.shape[1]), int(landmarks[11].y * frame.shape[0])]
+        hip = [int(landmarks[23].x * w), int(landmarks[23].y * h)]
+        knee = [int(landmarks[25].x * w), int(landmarks[25].y * h)]
+        shoulder = [int(landmarks[11].x * w), int(landmarks[11].y * h)]
 
-        hip_right = [int(landmarks[24].x * frame.shape[1]), int(landmarks[24].y * frame.shape[0])]
-        knee_right = [int(landmarks[26].x * frame.shape[1]), int(landmarks[26].y * frame.shape[0])]
-        shoulder_right = [int(landmarks[12].x * frame.shape[1]), int(landmarks[12].y * frame.shape[0])]
+        hip_right = [int(landmarks[24].x * w), int(landmarks[24].y * h)]
+        knee_right = [int(landmarks[26].x * w), int(landmarks[26].y * h)]
+        shoulder_right = [int(landmarks[12].x * w), int(landmarks[12].y * h)]
 
-        # Draw lines for squat
-        cv2.line(frame, shoulder, hip, (178, 102, 255), 2)
-        cv2.line(frame, hip, knee, (178, 102, 255), 2)
-        cv2.line(frame, shoulder_right, hip_right, (51, 153, 255), 2)
-        cv2.line(frame, hip_right, knee_right, (51, 153, 255), 2)
+        # Draw lines for squat (aliased and scaled)
+        cv2.line(frame, tuple(shoulder), tuple(hip), (178, 102, 255), thickness, cv2.LINE_AA)
+        cv2.line(frame, tuple(hip), tuple(knee), (178, 102, 255), thickness, cv2.LINE_AA)
+        cv2.line(frame, tuple(shoulder_right), tuple(hip_right), (51, 153, 255), thickness, cv2.LINE_AA)
+        cv2.line(frame, tuple(hip_right), tuple(knee_right), (51, 153, 255), thickness, cv2.LINE_AA)
 
     def draw_push_up_lines(self, frame, landmarks):
+        h, w = frame.shape[:2]
+        scale = max(1.0, min(1.8, h / 960.0))
+        thickness = max(1, int(2 * scale))
+
         # Push-up specific lines (shoulder, elbow, wrist)
-        shoulder_left = [int(landmarks[11].x * frame.shape[1]), int(landmarks[11].y * frame.shape[0])]
-        elbow_left = [int(landmarks[13].x * frame.shape[1]), int(landmarks[13].y * frame.shape[0])]
-        wrist_left = [int(landmarks[15].x * frame.shape[1]), int(landmarks[15].y * frame.shape[0])]
+        shoulder_left = [int(landmarks[11].x * w), int(landmarks[11].y * h)]
+        elbow_left = [int(landmarks[13].x * w), int(landmarks[13].y * h)]
+        wrist_left = [int(landmarks[15].x * w), int(landmarks[15].y * h)]
 
-        shoulder_right = [int(landmarks[12].x * frame.shape[1]), int(landmarks[12].y * frame.shape[0])]
-        elbow_right = [int(landmarks[14].x * frame.shape[1]), int(landmarks[14].y * frame.shape[0])]
-        wrist_right = [int(landmarks[16].x * frame.shape[1]), int(landmarks[16].y * frame.shape[0])]
+        shoulder_right = [int(landmarks[12].x * w), int(landmarks[12].y * h)]
+        elbow_right = [int(landmarks[14].x * w), int(landmarks[14].y * h)]
+        wrist_right = [int(landmarks[16].x * w), int(landmarks[16].y * h)]
 
-        # Draw lines for push-up
-        cv2.line(frame, shoulder_left, elbow_left, (0, 0, 255), 2)
-        cv2.line(frame, elbow_left, wrist_left, (0, 0, 255), 2)
-        cv2.line(frame, shoulder_right, elbow_right, (102, 0, 0), 2)
-        cv2.line(frame, elbow_right, wrist_right, (102, 0, 0), 2)
+        # Draw lines for push-up (aliased and scaled)
+        cv2.line(frame, tuple(shoulder_left), tuple(elbow_left), (0, 0, 255), thickness, cv2.LINE_AA)
+        cv2.line(frame, tuple(elbow_left), tuple(wrist_left), (0, 0, 255), thickness, cv2.LINE_AA)
+        cv2.line(frame, tuple(shoulder_right), tuple(elbow_right), (102, 0, 0), thickness, cv2.LINE_AA)
+        cv2.line(frame, tuple(elbow_right), tuple(wrist_right), (102, 0, 0), thickness, cv2.LINE_AA)

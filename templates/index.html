@@ -3,111 +3,170 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Sports Trainer</title>
+    <title>Kinetic AI - Smart Fitness Trainer</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
 </head>
 <body>
+    <!-- Animated background ambient glows -->
+    <div class="glow-orb orb-1"></div>
+    <div class="glow-orb orb-2"></div>
+    <div class="glow-orb orb-3"></div>
+
     <div id="toast" class="toast"></div>
 
-    <div class="container">
-        <header>
-            <h1>🏃 AI Sports Trainer</h1>
-            <p>AI-powered exercise tracking and real-time feedback</p>
-            <nav class="main-nav">
-                <ul>
-                    <li><a href="/" class="nav-link active">Home</a></li>
-                    <li><a href="/dashboard" class="nav-link">Dashboard</a></li>
-                </ul>
-            </nav>
-        </header>
+    <nav class="navbar">
+        <a href="/" class="brand">
+            <div class="brand-logo-container">
+                <i class="fa-solid fa-bolt brand-icon"></i>
+            </div>
+            <span class="brand-name">KINETIC <span class="accent-text">AI</span></span>
+        </a>
+        <ul class="nav-menu">
+            <li><a href="/" class="nav-link active"><i class="fa-solid fa-house"></i> Home</a></li>
+            <li><a href="/dashboard" class="nav-link"><i class="fa-solid fa-chart-simple"></i> Dashboard</a></li>
+        </ul>
+    </nav>
 
+    <div class="container">
         <div class="main-content">
-            <div class="video-container">
+            <!-- Video Column -->
+            <div class="video-container" id="video-wrapper">
+                <!-- Camera HUD Overlay Brackets -->
+                <div class="hud-bracket top-left"></div>
+                <div class="hud-bracket top-right"></div>
+                <div class="hud-bracket bottom-left"></div>
+                <div class="hud-bracket bottom-right"></div>
+                
+                <!-- Flashing REC indicator -->
+                <div class="rec-indicator" id="rec-indicator" style="display: none;">
+                    <span class="rec-dot"></span>
+                    <span>ANALYSER ACTIVE</span>
+                </div>
+
                 <img id="live-video" src="{{ url_for('video_feed') }}" alt="Live Camera Feed">
                 <video id="processed-video" controls style="display:none;"></video>
                 <div id="video-overlay" class="video-overlay" style="display:none;">
                     <div class="spinner"></div>
-                    <p>Processing video…</p>
+                    <p style="font-weight: 500; letter-spacing: 0.5px;"><i class="fa-solid fa-circle-notch fa-spin"></i> CALCULATING POSE VECTORS...</p>
                 </div>
             </div>
 
+            <!-- Controls Column -->
             <div class="controls">
-                <!-- Mode -->
+                <!-- Mode selection -->
                 <div class="mode-selection card">
-                    <h3>Mode</h3>
-                    <label class="mode-option">
-                        <input type="radio" name="mode" value="live" checked> Live Camera
-                    </label>
-                    <label class="mode-option">
-                        <input type="radio" name="mode" value="upload"> Video Upload
-                    </label>
+                    <div class="card-badge">INPUT NODE</div>
+                    <h2><i class="fa-solid fa-sliders"></i> Training Mode</h2>
+                    <div class="mode-selection-wrapper">
+                        <label class="mode-option">
+                            <input type="radio" name="mode" value="live" checked>
+                            <i class="fa-solid fa-video"></i> Live Camera
+                        </label>
+                        <label class="mode-option">
+                            <input type="radio" name="mode" value="upload">
+                            <i class="fa-solid fa-cloud-arrow-up"></i> Video Upload
+                        </label>
+                    </div>
                 </div>
 
-                <!-- Upload -->
+                <!-- File upload area -->
                 <div class="upload-section card" style="display:none;">
+                    <div class="card-badge">MEDIA SOURCE</div>
+                    <h2><i class="fa-solid fa-file-arrow-up"></i> Video File</h2>
                     <div class="input-group">
-                        <label for="video-file">Select Video File:</label>
-                        <input type="file" id="video-file" accept="video/mp4,video/avi,video/mov,video/mkv,video/webm">
+                        <label class="file-drop-area" for="video-file">
+                            <div class="upload-icon-pulse">
+                                <i class="fa-solid fa-circle-arrow-up"></i>
+                            </div>
+                            <p style="font-weight: 600; margin: 8px 0 4px;">Select or Drop Video File</p>
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">MP4, AVI, MOV, MKV, WEBM</span>
+                            <input type="file" id="video-file" accept="video/mp4,video/avi,video/mov,video/mkv,video/webm">
+                            <div id="file-name-display" class="file-name-display"></div>
+                        </label>
                     </div>
                 </div>
 
                 <!-- Exercise selection -->
                 <div class="exercise-selection card">
-                    <h2>Select Exercise</h2>
+                    <div class="card-badge">MODEL SELECTION</div>
+                    <h2><i class="fa-solid fa-dumbbell"></i> Target Exercise</h2>
                     <div class="exercise-options">
                         <div class="exercise-option" data-exercise="squat">
-                            <img src="{{ url_for('static', filename='images/squat.png') }}" alt="Squat">
+                            <div class="exercise-image-wrapper">
+                                <img src="{{ url_for('static', filename='images/squat.png') }}" alt="Squat">
+                                <div class="exercise-image-overlay"></div>
+                            </div>
                             <h3>Squat</h3>
                         </div>
                         <div class="exercise-option" data-exercise="push_up">
-                            <img src="{{ url_for('static', filename='images/push_up.png') }}" alt="Push Up">
+                            <div class="exercise-image-wrapper">
+                                <img src="{{ url_for('static', filename='images/push_up.png') }}" alt="Push Up">
+                                <div class="exercise-image-overlay"></div>
+                            </div>
                             <h3>Push Up</h3>
                         </div>
                         <div class="exercise-option" data-exercise="hammer_curl">
-                            <img src="{{ url_for('static', filename='images/hammer_curl.png') }}" alt="Hammer Curl">
+                            <div class="exercise-image-wrapper">
+                                <img src="{{ url_for('static', filename='images/hammer_curl.png') }}" alt="Hammer Curl">
+                                <div class="exercise-image-overlay"></div>
+                            </div>
                             <h3>Hammer Curl</h3>
                         </div>
                     </div>
                 </div>
 
-                <!-- Config -->
+                <!-- Workout Config -->
                 <div class="exercise-config card">
-                    <h2>Configure Workout</h2>
+                    <div class="card-badge">SET TARGETS</div>
+                    <h2><i class="fa-solid fa-bullseye"></i> Workout Targets</h2>
                     <div class="config-inputs">
                         <div class="input-group">
-                            <label for="sets">Sets:</label>
+                            <label for="sets">Target Sets</label>
                             <input type="number" id="sets" min="1" max="10" value="3">
                         </div>
                         <div class="input-group">
-                            <label for="reps">Reps per Set:</label>
+                            <label for="reps">Reps per Set</label>
                             <input type="number" id="reps" min="1" max="50" value="10">
                         </div>
                     </div>
                 </div>
 
-                <!-- Buttons -->
+                <!-- Actions -->
                 <div class="action-buttons">
-                    <button id="start-btn" class="btn primary-btn">▶ Start</button>
-                    <button id="stop-btn" class="btn secondary-btn" disabled>■ Stop</button>
-                    <button id="upload-btn" class="btn primary-btn" style="display:none;">⬆ Analyze Video</button>
+                    <button id="start-btn" class="btn primary-btn"><i class="fa-solid fa-play"></i> Start Training</button>
+                    <button id="stop-btn" class="btn secondary-btn" disabled><i class="fa-solid fa-stop"></i> Stop & Save</button>
+                    <button id="upload-btn" class="btn primary-btn" style="display:none;"><i class="fa-solid fa-wand-magic-sparkles"></i> Process Workout</button>
                 </div>
 
-                <!-- Status -->
+                <!-- Live Status -->
                 <div class="workout-status card">
-                    <h2>Live Status</h2>
+                    <div class="card-badge">HUD ENGINE</div>
+                    <h2><i class="fa-solid fa-chart-line"></i> Real-time Telemetry</h2>
                     <div class="status-display">
-                        <div class="status-item">
+                        <div class="status-item" id="status-ex-box">
                             <span class="status-label">Exercise</span>
                             <span id="current-exercise" class="status-value">—</span>
                         </div>
-                        <div class="status-item">
-                            <span class="status-label">Set</span>
+                        <div class="status-item" id="status-set-box">
+                            <span class="status-label">Active Set</span>
                             <span id="current-set" class="status-value">0 / 0</span>
                         </div>
-                        <div class="status-item">
-                            <span class="status-label">Reps</span>
+                        <div class="status-item" id="status-rep-box">
+                            <span class="status-label">Total Reps</span>
                             <span id="current-reps" class="status-value">0 / 0</span>
+                        </div>
+                    </div>
+
+                    <!-- Cyber Progress Bar -->
+                    <div class="progress-bar-container" id="telemetry-progress-container" style="display: none;">
+                        <div class="progress-bar-labels">
+                            <span>Set Progress</span>
+                            <span id="progress-percent-label">0%</span>
+                        </div>
+                        <div class="progress-bar-track">
+                            <div class="progress-bar-fill" id="telemetry-progress-fill"></div>
                         </div>
                     </div>
                 </div>

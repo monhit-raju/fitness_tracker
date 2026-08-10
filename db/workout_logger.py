@@ -179,6 +179,47 @@ class WorkoutLogger:
             self.connection.commit()
         print(f"Workout {workout_id} summary updated")
 
+    def get_personal_records(self):
+        """Retrieve personal best reps per exercise and maximum duration."""
+        if not self.connection:
+            return {}
+        records = {}
+        with self.connection.cursor() as cursor:
+            # Max reps per exercise type
+            cursor.execute("""
+                SELECT w.exercise_type, MAX(d.rep_count) as max_reps
+                FROM workouts w
+                JOIN analysis_details d ON w.id = d.workout_id
+                GROUP BY w.exercise_type
+            """)
+            rows = cursor.fetchall()
+            for r in rows:
+                records[r['exercise_type']] = r['max_reps']
+            
+            # Max workout duration
+            cursor.execute("SELECT MAX(duration_seconds) as max_duration FROM workouts")
+            row = cursor.fetchone()
+            records['max_duration'] = row.get('max_duration', 0) if row else 0
+        return records
+
+    def get_yearly_activity(self):
+        """Retrieve active workout dates and session counts for the past 365 days."""
+        if not self.connection:
+            return []
+        with self.connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT DATE(start_time) as day, COUNT(*) as count
+                FROM workouts
+                WHERE start_time >= DATE_SUB(CURDATE(), INTERVAL 365 DAY)
+                GROUP BY day
+                ORDER BY day
+            """)
+            rows = cursor.fetchall()
+        return [
+            {'day': str(row['day']), 'count': row['count']}
+            for row in rows
+        ]
+
     def close(self):
         if self.connection:
             self.connection.close()

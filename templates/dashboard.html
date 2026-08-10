@@ -3,86 +3,166 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fitness Tracker Dashboard</title>
+    <title>Kinetic AI - Performance Dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>🏋️ Fitness Dashboard</h1>
-            <p>Track your workout progress</p>
-            <nav class="main-nav">
-                <ul>
-                    <li><a href="/" class="nav-link">Home</a></li>
-                    <li><a href="/dashboard" class="nav-link active">Dashboard</a></li>
-                </ul>
-            </nav>
-        </header>
+    <!-- Animated background ambient glows -->
+    <div class="glow-orb orb-1"></div>
+    <div class="glow-orb orb-2"></div>
+    <div class="glow-orb orb-3"></div>
 
+    <nav class="navbar">
+        <a href="/" class="brand">
+            <div class="brand-logo-container">
+                <i class="fa-solid fa-bolt brand-icon"></i>
+            </div>
+            <span class="brand-name">KINETIC <span class="accent-text">AI</span></span>
+        </a>
+        <ul class="nav-menu">
+            <li><a href="/" class="nav-link"><i class="fa-solid fa-house"></i> Home</a></li>
+            <li><a href="/dashboard" class="nav-link active"><i class="fa-solid fa-chart-simple"></i> Dashboard</a></li>
+        </ul>
+    </nav>
+
+    <div class="container">
         <div class="dashboard-content">
+            <!-- Stats overview grid -->
             <div class="stats-summary">
                 <div class="stat-card">
-                    <h3>Total Workouts</h3>
+                    <div class="stat-card-header">
+                        <h3>Total Workouts</h3>
+                        <div class="stat-card-icon"><i class="fa-solid fa-calendar-check"></i></div>
+                    </div>
                     <p class="stat-value">{{ total_workouts }}</p>
                 </div>
                 <div class="stat-card">
-                    <h3>Total Exercises</h3>
+                    <div class="stat-card-header">
+                        <h3>Total Exercises</h3>
+                        <div class="stat-card-icon"><i class="fa-solid fa-dumbbell"></i></div>
+                    </div>
                     <p class="stat-value">{{ total_exercises }}</p>
                 </div>
                 <div class="stat-card">
-                    <h3>This Week</h3>
+                    <div class="stat-card-header">
+                        <h3>This Week</h3>
+                        <div class="stat-card-icon"><i class="fa-solid fa-fire"></i></div>
+                    </div>
                     <p class="stat-value">{{ weekly_workouts }}</p>
                 </div>
                 <div class="stat-card">
-                    <h3>Active Days (30d)</h3>
+                    <div class="stat-card-header">
+                        <h3>Active Days (30d)</h3>
+                        <div class="stat-card-icon"><i class="fa-solid fa-calendar-days"></i></div>
+                    </div>
                     <p class="stat-value">{{ streak_days }}</p>
                 </div>
             </div>
 
+            <!-- Personal Records (PRs) Section -->
+            <div class="section-header pr-header">
+                <h2><i class="fa-solid fa-trophy" style="color: var(--neon-rose);"></i> Personal Records (PRs)</h2>
+            </div>
+            <div class="pr-summary">
+                <div class="pr-card">
+                    <div class="pr-card-header">
+                        <h3>Squats PB</h3>
+                        <div class="pr-card-icon"><i class="fa-solid fa-trophy pr-gold"></i></div>
+                    </div>
+                    <p class="pr-value">{{ pr_squats }} <span class="pr-unit">reps</span></p>
+                </div>
+                <div class="pr-card">
+                    <div class="pr-card-header">
+                        <h3>Push-Ups PB</h3>
+                        <div class="pr-card-icon"><i class="fa-solid fa-trophy pr-gold"></i></div>
+                    </div>
+                    <p class="pr-value">{{ pr_pushups }} <span class="pr-unit">reps</span></p>
+                </div>
+                <div class="pr-card">
+                    <div class="pr-card-header">
+                        <h3>Hammer Curls PB</h3>
+                        <div class="pr-card-icon"><i class="fa-solid fa-trophy pr-gold"></i></div>
+                    </div>
+                    <p class="pr-value">{{ pr_curls }} <span class="pr-unit">reps</span></p>
+                </div>
+                <div class="pr-card">
+                    <div class="pr-card-header">
+                        <h3>Max Session Length</h3>
+                        <div class="pr-card-icon"><i class="fa-solid fa-stopwatch pr-gold"></i></div>
+                    </div>
+                    <p class="pr-value">{{ pr_duration }}</p>
+                </div>
+            </div>
+
+            <!-- Charts controls & grid -->
             <div class="section-header">
-                <h2>Activity Charts</h2>
-                <button id="refresh-stats" class="btn secondary-btn" style="width:auto;padding:8px 16px;">↻ Refresh</button>
+                <h2><i class="fa-solid fa-chart-line"></i> Analytics Dashboard</h2>
+                <button id="refresh-stats" class="btn primary-btn" style="width:auto; padding:10px 18px; border-radius:10px; font-size:0.85rem;">
+                    <i class="fa-solid fa-arrows-rotate"></i> Refresh Data
+                </button>
             </div>
 
             <div class="charts-container">
                 <div class="chart-card">
-                    <h3>Weekly Activity (minutes)</h3>
+                    <h3><i class="fa-solid fa-chart-simple"></i> Weekly Activity (minutes)</h3>
                     <canvas id="weeklyChart"></canvas>
                 </div>
                 <div class="chart-card">
-                    <h3>Exercise Distribution</h3>
+                    <h3><i class="fa-solid fa-chart-pie"></i> Exercise Distribution</h3>
                     <canvas id="exerciseChart"></canvas>
                 </div>
             </div>
 
+            <!-- Yearly Consistency Calendar Heatmap -->
+            <div class="heatmap-section">
+                <h2><i class="fa-solid fa-calendar-days"></i> Workout Consistency Grid (Last 365 Days)</h2>
+                <div class="heatmap-card">
+                    <div id="contribution-calendar" class="calendar-grid">
+                        <!-- Will be dynamically populated by dashboard.js -->
+                    </div>
+                    <div class="calendar-legend">
+                        <span>Less</span>
+                        <div class="legend-box level-0"></div>
+                        <div class="legend-box level-1"></div>
+                        <div class="legend-box level-2"></div>
+                        <div class="legend-box level-3"></div>
+                        <span>More</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Workouts -->
             <div class="recent-workouts">
-                <h2>Recent Workouts</h2>
+                <h2><i class="fa-solid fa-history"></i> Workout History Logs</h2>
                 {% if recent_workouts %}
-                <table class="workout-table">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Exercise</th>
-                            <th>Sets</th>
-                            <th>Reps</th>
-                            <th>Duration</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for workout in recent_workouts %}
-                        <tr>
-                            <td>{{ workout.date }}</td>
-                            <td>{{ workout.exercise }}</td>
-                            <td>{{ workout.sets }}</td>
-                            <td>{{ workout.reps }}</td>
-                            <td>{{ workout.duration }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                <div class="table-responsive">
+                    <table class="workout-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Exercise</th>
+                                <th>Sets</th>
+                                <th>Reps</th>
+                                <th>Duration</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for workout in recent_workouts %}
+                            <tr>
+                                <td>{{ workout.date }}</td>
+                                <td><i class="fa-solid fa-circle-play" style="color: var(--neon-cyan); margin-right: 8px;"></i>{{ workout.exercise }}</td>
+                                <td>{{ workout.sets }}</td>
+                                <td>{{ workout.reps }}</td>
+                                <td><i class="fa-regular fa-clock" style="margin-right: 6px; font-size:0.85rem;"></i>{{ workout.duration }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
                 {% else %}
                 <p class="no-data">No workouts recorded yet. <a href="/">Start your first workout!</a></p>
                 {% endif %}

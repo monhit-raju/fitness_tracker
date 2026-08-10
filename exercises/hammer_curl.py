@@ -12,30 +12,32 @@ class HammerCurl:
         self.stage_right   = None    # None -> "down" -> "up" -> "down"
         self.stage_left    = None
 
-        # ── Elbow flexion thresholds (shoulder → elbow → wrist) ───────────────
-        # Arm fully extended = ~160°+   Arm fully curled = ~40°
-        self.angle_down = 155
-        self.angle_up   = 50
+        # Calibration state variables
+        self.calibrated = False
+        self.calibration_frames = []
+        self.calibration_limit = 25
+        self.standing_baseline = 160.0
+
+        # Elbow flexion thresholds
+        self.angle_down = 155        # extended (calibrated dynamically)
+        self.angle_up   = 50         # curled (calibrated dynamically)
+
+        # Hysteresis frame counts
+        self._up_frames_r = 0
+        self._down_frames_r = 0
+        self._up_frames_l = 0
+        self._down_frames_l = 0
 
         # ── Form thresholds ────────────────────────────────────────────────────
-        # Upper arm swing: shoulder → elbow horizontal drift
-        # Measured as angle between (hip → shoulder → elbow)
-        # Elbow should stay close to torso — flag if > 40°
         self.swing_threshold = 40
-
-        # Body sway: shoulder → hip → knee
-        # Standing straight = ~170°+. Flag if < 155°
         self.sway_min = 155
-
-        # Shoulder shrug: shoulder y should not rise significantly during curl
-        # Tracked as change in normalised y from baseline
-        self.shrug_threshold = 0.04   # fraction of frame height
+        self.shrug_threshold = 0.04
 
         # Angle smoothing per arm
         self._buf_r = deque(maxlen=5)
         self._buf_l = deque(maxlen=5)
 
-        # Shoulder baseline y (set on first frame)
+        # Shoulder baseline y
         self._shoulder_base_r = None
         self._shoulder_base_l = None
 
@@ -69,6 +71,35 @@ class HammerCurl:
         angle_r = float(np.mean(self._buf_r))
         angle_l = float(np.mean(self._buf_l))
 
+        # ── Dynamic Posture Calibration ────────────────────────────────────────
+        if not self.calibrated:
+            self.calibration_frames.append((angle_r + angle_l) / 2.0)
+            scale = max(1.0, min(1.8, h / 960.0))
+            
+            # Show calibration warning overlay
+            self.form_warnings = ["Calibrating... Let arms hang"]
+            draw_warning_panel(frame, self.form_warnings)
+            
+            # Left-side calibration info
+            draw_info_panel(frame, [
+                ("R Reps",  "Calibrating",  (200, 200, 200)),
+                ("L Reps",  "Calibrating",  (200, 200, 200)),
+                ("Progress", f"{len(self.calibration_frames) * 4}%", (0, 220, 255)),
+            ], x_offset=10, y_start=220)
+            
+            if len(self.calibration_frames) >= self.calibration_limit:
+                self.standing_baseline = float(np.mean(self.calibration_frames))
+                self.angle_down = min(168.0, self.standing_baseline - 5.0)
+                self.angle_up = 50.0  # curl depth is fixed at 50 degrees
+                self.calibrated = True
+                
+                # Calibrate shoulder base heights
+                self._shoulder_base_r = raw_y(11)
+                self._shoulder_base_l = raw_y(12)
+            
+            # Return dummy values for calibration frame
+            return (0, angle_r, 0, angle_l, None, None, 0, 0, "Calibrating", "Calibrating")
+
         # ── 2. Upper arm swing — hip → shoulder → elbow ───────────────────────
         swing_r = calculate_angle(hip_r, shoulder_r, elbow_r)
         swing_l = calculate_angle(hip_l, shoulder_l, elbow_l)
@@ -83,29 +114,35 @@ class HammerCurl:
         if self._shoulder_base_r is None:
             self._shoulder_base_r = sy_r
             self._shoulder_base_l = sy_l
-        # In image coords y increases downward, so shrug = y decreasing
         shrug_r = (self._shoulder_base_r - sy_r) > self.shrug_threshold
         shrug_l = (self._shoulder_base_l - sy_l) > self.shrug_threshold
 
-        # ── Draw skeleton ──────────────────────────────────────────────────────
+        # ── Draw skeleton (dynamically scaled) ──────────────────────────────────
+        scale = max(1.0, min(1.8, h / 960.0))
+        thickness_skeleton = max(1, int(2 * scale))
+        joint_radius = max(3, int(7 * scale))
+        ring_thickness = max(1, int(1 * scale))
+        text_scale = 0.55 * scale
+        text_thickness = max(1, int(2 * scale))
+
         body_ok    = sway_avg >= self.sway_min
         body_color = (0, 220, 0) if body_ok else (0, 140, 255)
 
         # Right arm — orange
         r_color = (0, 140, 255)
-        cv2.line(frame, tuple(shoulder_r), tuple(elbow_r), r_color, 3, cv2.LINE_AA)
-        cv2.line(frame, tuple(elbow_r),    tuple(wrist_r), r_color, 3, cv2.LINE_AA)
+        cv2.line(frame, tuple(shoulder_r), tuple(elbow_r), r_color, thickness_skeleton, cv2.LINE_AA)
+        cv2.line(frame, tuple(elbow_r),    tuple(wrist_r), r_color, thickness_skeleton, cv2.LINE_AA)
 
         # Left arm — cyan/yellow
         l_color = (0, 220, 180)
-        cv2.line(frame, tuple(shoulder_l), tuple(elbow_l), l_color, 3, cv2.LINE_AA)
-        cv2.line(frame, tuple(elbow_l),    tuple(wrist_l), l_color, 3, cv2.LINE_AA)
+        cv2.line(frame, tuple(shoulder_l), tuple(elbow_l), l_color, thickness_skeleton, cv2.LINE_AA)
+        cv2.line(frame, tuple(elbow_l),    tuple(wrist_l), l_color, thickness_skeleton, cv2.LINE_AA)
 
         # Body lines
-        cv2.line(frame, tuple(shoulder_r), tuple(hip_r), body_color, 2, cv2.LINE_AA)
-        cv2.line(frame, tuple(hip_r),      tuple(knee_r), body_color, 2, cv2.LINE_AA)
-        cv2.line(frame, tuple(shoulder_l), tuple(hip_l), body_color, 2, cv2.LINE_AA)
-        cv2.line(frame, tuple(hip_l),      tuple(knee_l), body_color, 2, cv2.LINE_AA)
+        cv2.line(frame, tuple(shoulder_r), tuple(hip_r), body_color, thickness_skeleton, cv2.LINE_AA)
+        cv2.line(frame, tuple(hip_r),      tuple(knee_r), body_color, thickness_skeleton, cv2.LINE_AA)
+        cv2.line(frame, tuple(shoulder_l), tuple(hip_l), body_color, thickness_skeleton, cv2.LINE_AA)
+        cv2.line(frame, tuple(hip_l),      tuple(knee_l), body_color, thickness_skeleton, cv2.LINE_AA)
 
         # Joints with white ring
         for coord, color in [
@@ -114,33 +151,51 @@ class HammerCurl:
             (hip_r, body_color),   (hip_l,   body_color),
             (knee_r, body_color),  (knee_l,  body_color),
         ]:
-            cv2.circle(frame, tuple(coord), 7, color, -1)
-            cv2.circle(frame, tuple(coord), 7, (255, 255, 255), 1)
+            cv2.circle(frame, tuple(coord), joint_radius, color, -1, cv2.LINE_AA)
+            cv2.circle(frame, tuple(coord), joint_radius, (255, 255, 255), ring_thickness, cv2.LINE_AA)
 
         # Angle labels
         cv2.putText(frame, f'R:{int(angle_r)}',
-                    (elbow_r[0] + 10, elbow_r[1] - 10),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 0), 2, cv2.LINE_AA)
+                    (elbow_r[0] + int(10 * scale), elbow_r[1] - int(10 * scale)),
+                    cv2.FONT_HERSHEY_SIMPLEX, text_scale, (255, 255, 0), text_thickness, cv2.LINE_AA)
         cv2.putText(frame, f'L:{int(angle_l)}',
-                    (elbow_l[0] + 10, elbow_l[1] - 10),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 0), 2, cv2.LINE_AA)
+                    (elbow_l[0] + int(10 * scale), elbow_l[1] - int(10 * scale)),
+                    cv2.FONT_HERSHEY_SIMPLEX, text_scale, (255, 255, 0), text_thickness, cv2.LINE_AA)
 
-        # ── Stage machines — down → up → down ─────────────────────────────────
+        # ── Stage machines with Hysteresis ──
         # Right arm
         if angle_r > self.angle_down:
-            if self.stage_right == "up":
-                self.counter_right += 1
-            self.stage_right = "down"
+            self._down_frames_r += 1
+            self._up_frames_r = 0
+            if self._down_frames_r >= 3:
+                if self.stage_right == "up":
+                    self.counter_right += 1
+                self.stage_right = "down"
         elif angle_r < self.angle_up:
-            self.stage_right = "up"
+            self._up_frames_r += 1
+            self._down_frames_r = 0
+            if self._up_frames_r >= 3:
+                self.stage_right = "up"
+        else:
+            self._up_frames_r = 0
+            self._down_frames_r = 0
 
         # Left arm
         if angle_l > self.angle_down:
-            if self.stage_left == "up":
-                self.counter_left += 1
-            self.stage_left = "down"
+            self._down_frames_l += 1
+            self._up_frames_l = 0
+            if self._down_frames_l >= 3:
+                if self.stage_left == "up":
+                    self.counter_left += 1
+                self.stage_left = "down"
         elif angle_l < self.angle_up:
-            self.stage_left = "up"
+            self._up_frames_l += 1
+            self._down_frames_l = 0
+            if self._up_frames_l >= 3:
+                self.stage_left = "up"
+        else:
+            self._up_frames_l = 0
+            self._down_frames_l = 0
 
         # ── Form warnings (right side panel) ──────────────────────────────────
         self.form_warnings = []
@@ -168,7 +223,7 @@ class HammerCurl:
             ("R Stage", self.stage_right or "Get Ready", r_stage_color),
             ("L Reps",  self.counter_left,  (0, 220, 180)),
             ("L Stage", self.stage_left  or "Get Ready", l_stage_color),
-        ], x_offset=10, y_start=160)
+        ], x_offset=10, y_start=220)
 
         # Build warning messages for return value (used by layout indicators)
         warning_message_right = next(
