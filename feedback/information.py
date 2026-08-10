@@ -35,7 +35,32 @@ def get_exercise_info(exercise_type):
                 "Builds lower body strength",
                 "Improves mobility and balance"
             ]
+        },
+        "lunge": {
+            "name": "Lunge",
+            "target_muscles": ["Quads", "Glutes", "Calves"],
+            "equipment": "Bodyweight or Dumbbells",
+            "reps": 10,
+            "sets": 3,
+            "rest_time": "45 seconds",
+            "benefits": [
+                "Enhances single-leg balance",
+                "Strengthens hips & thighs"
+            ]
+        },
+        "shoulder_press": {
+            "name": "Overhead Press",
+            "target_muscles": ["Deltoids", "Triceps", "Upper Back"],
+            "equipment": "Dumbbells or Barbell",
+            "reps": 8,
+            "sets": 3,
+            "rest_time": "60 seconds",
+            "benefits": [
+                "Builds overhead shoulder power",
+                "Improves core stabilization"
+            ]
         }
     }
 
     return exercises.get(exercise_type, {})
+

@@ -1,6 +1,8 @@
 # feedback/layout.py
 
-from feedback.indicators import draw_squat_indicators, draw_pushup_indicators, draw_hammercurl_indicators
+from feedback.indicators import (draw_squat_indicators, draw_pushup_indicators,
+                                 draw_hammercurl_indicators, draw_lunge_indicators,
+                                 draw_shoulderpress_indicators)
 
 def layout_indicators(frame, exercise_type, exercise_data):
     if exercise_type == "squat":
@@ -13,4 +15,11 @@ def layout_indicators(frame, exercise_type, exercise_data):
         (counter_right, angle_right, counter_left, angle_left,
          warning_message_right, warning_message_left, progress_right, progress_left,stage_right,stage_left) = exercise_data
         draw_hammercurl_indicators(frame, counter_right, angle_right, counter_left, angle_left, stage_right,stage_left)
+    elif exercise_type == "lunge":
+        counter, angle, stage = exercise_data
+        draw_lunge_indicators(frame, counter, angle, stage)
+    elif exercise_type == "shoulder_press":
+        counter, angle, stage = exercise_data
+        draw_shoulderpress_indicators(frame, counter, angle, stage)
+
 

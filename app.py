@@ -21,6 +21,8 @@ try:
     from exercises.squat import Squat
     from exercises.hammer_curl import HammerCurl
     from exercises.push_up import PushUp
+    from exercises.lunge import Lunge
+    from exercises.shoulder_press import ShoulderPress
     from feedback.information import get_exercise_info
     from feedback.layout import layout_indicators
     from utils.draw_text_with_background import draw_text_with_background
@@ -58,6 +60,10 @@ _state = {
     'last_logged_rep': 0,
     'current_warnings': [],
     'current_stage': None,
+    'total_reps_session': 0,
+    'clean_reps': 0,
+    'warning_reps': 0,
+    'warnings_log': [],
 }
 
 def _get(key):
@@ -153,6 +159,29 @@ def generate_frames():
                         _set(last_logged_rep=new_counter)
                     _set(exercise_counter=new_counter, current_warnings=exercise.form_warnings, current_stage=f"R: {sr}, L: {sl}")
 
+                elif ex_type == "lunge":
+                    counter, angle, stage = exercise.track_lunge(results.pose_landmarks.landmark, frame)
+                    layout_indicators(frame, ex_type, (counter, angle, stage))
+                    if counter > last_rep and workout_id:
+                        workout_logger.log_analysis_detail(workout_id, counter, angle, stage)
+                        _set(last_logged_rep=counter)
+                    _set(exercise_counter=counter, current_warnings=exercise.form_warnings, current_stage=stage)
+
+                elif ex_type == "shoulder_press":
+                    counter, angle, stage = exercise.track_shoulder_press(results.pose_landmarks.landmark, frame)
+                    layout_indicators(frame, ex_type, (counter, angle, stage))
+                    if counter > last_rep and workout_id:
+                        workout_logger.log_analysis_detail(workout_id, counter, angle, stage)
+                        _set(last_logged_rep=counter)
+                    _set(exercise_counter=counter, current_warnings=exercise.form_warnings, current_stage=stage)
+
+                # Keep log of posture warnings for form accuracy score
+                if exercise.form_warnings:
+                    with _state_lock:
+                        for w_msg in exercise.form_warnings:
+                            if w_msg not in _state['warnings_log']:
+                                _state['warnings_log'].append(w_msg)
+
                 exercise_info = get_exercise_info(ex_data['type'])
                 draw_text_with_background(frame, f"Exercise: {exercise_info.get('name', 'N/A')}", (40, 50),
                                           cv2.FONT_HERSHEY_DUPLEX, 0.7, (255, 255, 255), (118, 29, 14), 1)
@@ -215,6 +244,10 @@ def process_video_file(input_path, exercise_type, reps_goal, sets_goal_val):
         exercise = PushUp()
     elif exercise_type == "hammer_curl":
         exercise = HammerCurl()
+    elif exercise_type == "lunge":
+        exercise = Lunge()
+    elif exercise_type == "shoulder_press":
+        exercise = ShoulderPress()
     else:
         return None
 
@@ -270,6 +303,14 @@ def process_video_file(input_path, exercise_type, reps_goal, sets_goal_val):
                         results.pose_landmarks.landmark, frame)
                     layout_indicators(frame, exercise_type, (cr, ar, cl, al, wr, wl, pr, pl, sr, sl))
                     ex_counter = max(cr, cl)
+                elif exercise_type == "lunge":
+                    counter, angle, stage = exercise.track_lunge(results.pose_landmarks.landmark, frame)
+                    layout_indicators(frame, exercise_type, (counter, angle, stage))
+                    ex_counter = counter
+                elif exercise_type == "shoulder_press":
+                    counter, angle, stage = exercise.track_shoulder_press(results.pose_landmarks.landmark, frame)
+                    layout_indicators(frame, exercise_type, (counter, angle, stage))
+                    ex_counter = counter
 
                 draw_text_with_background(frame, f"Exercise: {exercise_info.get('name', 'N/A')}", (40, 50),
                                           cv2.FONT_HERSHEY_DUPLEX, 0.7, (255, 255, 255), (118, 29, 14), 1)
@@ -437,11 +478,14 @@ def start_exercise():
         exercise = PushUp()
     elif exercise_type == "hammer_curl":
         exercise = HammerCurl()
+    elif exercise_type == "lunge":
+        exercise = Lunge()
+    elif exercise_type == "shoulder_press":
+        exercise = ShoulderPress()
     else:
         return jsonify({'success': False, 'error': 'Invalid exercise type'})
 
     workout_id = workout_logger.log_workout(exercise_type, sets_goal_val, ex_goal, 0)
-    # DB logging is optional — don't block the workout if DB is unavailable
     if not workout_id:
         logger.warning("DB unavailable — workout will run without logging")
 
@@ -476,6 +520,7 @@ def start_exercise():
         video_writer=video_writer,
         video_path=vid_path,
         last_logged_rep=0,
+        warnings_log=[],
     )
 
     return jsonify({'success': True})
@@ -490,18 +535,35 @@ def stop_exercise():
         start_time = _state['workout_start_time']
         sets_done = _state['sets_completed']
         ex_counter = _state['exercise_counter']
+        ex_goal = _state['exercise_goal']
         writer = _state['video_writer']
         vid_path = _state['video_path']
+        warnings = list(_state['warnings_log'])
+
+    duration = int(time.time() - start_time) if start_time else 0
+    completed_sets = sets_done + (1 if ex_counter > 0 else 0)
+    total_reps = (sets_done * ex_goal) + ex_counter
 
     if running and ex_data and workout_id:
-        duration = int(time.time() - start_time) if start_time else 0
         if writer and writer.isOpened():
             writer.release()
-        completed_sets = sets_done + (1 if ex_counter > 0 else 0)
         workout_logger.update_workout_summary(workout_id, completed_sets, duration, vid_path)
 
-    _set(exercise_running=False, current_workout_id=None, video_path=None, video_writer=None, current_warnings=[], current_stage=None)
-    return jsonify({'success': True})
+    # Compute posture form accuracy score (%)
+    form_accuracy = max(40, 100 - (len(warnings) * 12)) if total_reps > 0 else 100
+
+    summary_data = {
+        'exercise': (ex_data['type'] if ex_data else 'Workout').replace('_', ' ').title(),
+        'duration_formatted': f"{duration // 60}:{duration % 60:02d}",
+        'duration_seconds': duration,
+        'completed_sets': completed_sets,
+        'total_reps': total_reps,
+        'form_accuracy': form_accuracy,
+        'warnings_log': warnings
+    }
+
+    _set(exercise_running=False, current_workout_id=None, video_path=None, video_writer=None, current_warnings=[], current_stage=None, warnings_log=[])
+    return jsonify({'success': True, 'summary': summary_data})
 
 
 @app.route('/get_status', methods=['GET'])
@@ -532,12 +594,11 @@ def upload_video():
         if not file.filename:
             return jsonify({'success': False, 'error': 'No video file selected'})
 
-        # Validate file extension
         if not _allowed_video(file.filename):
             return jsonify({'success': False,
                             'error': f'Invalid file type. Allowed: {", ".join(ALLOWED_VIDEO_EXTENSIONS)}'})
 
-        if exercise_type not in ('squat', 'push_up', 'hammer_curl'):
+        if exercise_type not in ('squat', 'push_up', 'hammer_curl', 'lunge', 'shoulder_press'):
             return jsonify({'success': False, 'error': 'Invalid exercise type'})
 
         temp_filename = f"temp_{uuid.uuid4()}.mp4"
@@ -551,7 +612,6 @@ def upload_video():
             os.remove(temp_path)
 
         if output_path:
-            # Build URL relative to the static folder
             rel = os.path.relpath(output_path, os.path.join(app.root_path, 'static'))
             video_url = url_for('static', filename=rel.replace(os.sep, '/'))
             return jsonify({'success': True, 'video_url': video_url})
@@ -561,6 +621,37 @@ def upload_video():
     except Exception as e:
         logger.error(f"Error in upload_video: {e}")
         return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/export_csv')
+def export_csv():
+    import csv
+    import io
+    from flask import Response
+
+    workouts = workout_logger.getAllWorkouts()
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    writer.writerow(['ID', 'Exercise', 'Sets', 'Reps', 'Duration (s)', 'Start Time', 'End Time'])
+    for w in workouts:
+        writer.writerow([
+            w.get('id', ''),
+            (w.get('exercise_type') or '').replace('_', ' ').title(),
+            w.get('sets', 0),
+            w.get('reps', 0),
+            w.get('duration_seconds', 0),
+            w.get('start_time', ''),
+            w.get('end_time', '')
+        ])
+
+    output.seek(0)
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-disposition": "attachment; filename=workout_history.csv"}
+    )
+
 
 
 @app.route('/profile')

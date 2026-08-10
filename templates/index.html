@@ -26,6 +26,8 @@
         <ul class="nav-menu">
             <li><a href="/" class="nav-link active"><i class="fa-solid fa-house"></i> Home</a></li>
             <li><a href="/dashboard" class="nav-link"><i class="fa-solid fa-chart-simple"></i> Dashboard</a></li>
+            <li><button id="voice-toggle-btn" class="nav-action-btn active"><i class="fa-solid fa-volume-high"></i> Voice ON</button></li>
+            <li><button id="guide-toggle-btn" class="nav-action-btn"><i class="fa-solid fa-book-open"></i> Technique Guide</button></li>
         </ul>
     </nav>
 
@@ -43,6 +45,17 @@
                 <div class="rec-indicator" id="rec-indicator" style="display: none;">
                     <span class="rec-dot"></span>
                     <span>ANALYSER ACTIVE</span>
+                </div>
+
+                <!-- Rest Timer Overlay -->
+                <div id="rest-timer-overlay" class="rest-timer-overlay" style="display: none;">
+                    <div class="rest-timer-box">
+                        <i class="fa-solid fa-bed-pulse rest-icon"></i>
+                        <h3>REST & RECOVER</h3>
+                        <p class="rest-subtitle">Great set! Prepare for next set.</p>
+                        <div class="rest-countdown" id="rest-countdown-num">30</div>
+                        <button id="skip-rest-btn" class="btn primary-btn btn-sm"><i class="fa-solid fa-forward"></i> Skip Rest</button>
+                    </div>
                 </div>
 
                 <img id="live-video" src="{{ url_for('video_feed') }}" alt="Live Camera Feed">
@@ -92,7 +105,7 @@
                 <div class="exercise-selection card">
                     <div class="card-badge">MODEL SELECTION</div>
                     <h2><i class="fa-solid fa-dumbbell"></i> Target Exercise</h2>
-                    <div class="exercise-options">
+                    <div class="exercise-options grid-5">
                         <div class="exercise-option" data-exercise="squat">
                             <div class="exercise-image-wrapper">
                                 <img src="{{ url_for('static', filename='images/squat.png') }}" alt="Squat">
@@ -113,6 +126,20 @@
                                 <div class="exercise-image-overlay"></div>
                             </div>
                             <h3>Hammer Curl</h3>
+                        </div>
+                        <div class="exercise-option" data-exercise="lunge">
+                            <div class="exercise-image-wrapper fallback-icon-bg">
+                                <i class="fa-solid fa-person-walking-arrow-right ex-icon"></i>
+                                <div class="exercise-image-overlay"></div>
+                            </div>
+                            <h3>Lunge</h3>
+                        </div>
+                        <div class="exercise-option" data-exercise="shoulder_press">
+                            <div class="exercise-image-wrapper fallback-icon-bg">
+                                <i class="fa-solid fa-child-reaching ex-icon"></i>
+                                <div class="exercise-image-overlay"></div>
+                            </div>
+                            <h3>Overhead Press</h3>
                         </div>
                     </div>
                 </div>
@@ -174,6 +201,117 @@
         </div>
     </div>
 
+    <!-- Post-Workout Summary Report Modal -->
+    <div id="summary-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2><i class="fa-solid fa-trophy highlight-icon"></i> Session Report Card</h2>
+                <button class="modal-close-btn" id="close-summary-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="summary-score-container">
+                    <div class="accuracy-gauge-box">
+                        <div class="accuracy-percent" id="summary-accuracy">95%</div>
+                        <div class="accuracy-label">Form Accuracy</div>
+                    </div>
+                </div>
+                <div class="summary-grid">
+                    <div class="summary-item">
+                        <span class="summary-label">Exercise</span>
+                        <span class="summary-val" id="summary-exercise">Squat</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Duration</span>
+                        <span class="summary-val" id="summary-duration">02:15</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Sets Completed</span>
+                        <span class="summary-val" id="summary-sets">3</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Total Reps</span>
+                        <span class="summary-val" id="summary-reps">30</span>
+                    </div>
+                </div>
+                <div class="summary-warnings-box">
+                    <h4><i class="fa-solid fa-triangle-exclamation"></i> Form Observations & Corrections</h4>
+                    <ul id="summary-warnings-list">
+                        <li><i class="fa-solid fa-check-circle" style="color:var(--neon-green);"></i> Excellent posture maintained!</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <a href="/dashboard" class="btn primary-btn"><i class="fa-solid fa-chart-pie"></i> View Analytics</a>
+                <button class="btn secondary-btn" id="summary-done-btn">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Exercise Technique & Calibration Guide Modal -->
+    <div id="guide-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-card modal-lg">
+            <div class="modal-header">
+                <h2><i class="fa-solid fa-book-open"></i> Kinetic AI Exercise Guide</h2>
+                <button class="modal-close-btn" id="close-guide-btn">&times;</button>
+            </div>
+            <div class="modal-body guide-body">
+                <div class="guide-tabs">
+                    <button class="guide-tab active" data-tab="guide-squat">Squat</button>
+                    <button class="guide-tab" data-tab="guide-pushup">Push-Up</button>
+                    <button class="guide-tab" data-tab="guide-curl">Hammer Curl</button>
+                    <button class="guide-tab" data-tab="guide-lunge">Lunge</button>
+                    <button class="guide-tab" data-tab="guide-press">Overhead Press</button>
+                </div>
+                <div class="guide-content-area">
+                    <div class="guide-tab-content active" id="guide-squat">
+                        <h3><i class="fa-solid fa-person-chalkboard"></i> Perfect Squat Form</h3>
+                        <ul>
+                            <li><strong>Camera Framing:</strong> Stand side-profile or 45-degree angle to camera for knee depth tracking.</li>
+                            <li><strong>Depth:</strong> Lower hips until thighs are parallel to ground (knee angle &lt; 95°).</li>
+                            <li><strong>Common Errors:</strong> Excessive torso lean forward, knees buckling inward, heels lifting off floor.</li>
+                        </ul>
+                    </div>
+                    <div class="guide-tab-content" id="guide-pushup">
+                        <h3><i class="fa-solid fa-person-chalkboard"></i> Perfect Push-Up Form</h3>
+                        <ul>
+                            <li><strong>Camera Framing:</strong> Position camera side-on at floor level to capture shoulder-elbow line.</li>
+                            <li><strong>Depth:</strong> Lower chest until elbows reach 90° or lower.</li>
+                            <li><strong>Common Errors:</strong> Hips sagging or piking, elbows flaring out sideways.</li>
+                        </ul>
+                    </div>
+                    <div class="guide-tab-content" id="guide-curl">
+                        <h3><i class="fa-solid fa-person-chalkboard"></i> Perfect Hammer Curl Form</h3>
+                        <ul>
+                            <li><strong>Camera Framing:</strong> Stand front-facing or 3/4 angle with arms clearly visible.</li>
+                            <li><strong>Execution:</strong> Curl dumbbells toward shoulders with palms facing each other.</li>
+                            <li><strong>Common Errors:</strong> Swinging torso momentum, elbow drift.</li>
+                        </ul>
+                    </div>
+                    <div class="guide-tab-content" id="guide-lunge">
+                        <h3><i class="fa-solid fa-person-chalkboard"></i> Perfect Lunge Form</h3>
+                        <ul>
+                            <li><strong>Camera Framing:</strong> Stand side-profile with full body visible from head to toe.</li>
+                            <li><strong>Execution:</strong> Step forward and bend back knee toward floor to 90°.</li>
+                            <li><strong>Common Errors:</strong> Front knee extending past toes, torso leaning forward.</li>
+                        </ul>
+                    </div>
+                    <div class="guide-tab-content" id="guide-press">
+                        <h3><i class="fa-solid fa-person-chalkboard"></i> Perfect Overhead Press Form</h3>
+                        <ul>
+                            <li><strong>Camera Framing:</strong> Stand front-facing so both arms and shoulders are visible.</li>
+                            <li><strong>Execution:</strong> Press weights overhead until arms lock out directly above head.</li>
+                            <li><strong>Common Errors:</strong> Arching lower back, uneven/asymmetrical arm drive.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn primary-btn" id="guide-close-bottom">Got it!</button>
+            </div>
+        </div>
+    </div>
+
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </body>
 </html>
+
