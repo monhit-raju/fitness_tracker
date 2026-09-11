@@ -72,6 +72,8 @@
                 </div>
 
                 <img id="live-video" src="{{ url_for('video_feed') }}" alt="Live Camera Feed">
+                <video id="webcam-hidden" autoplay playsinline style="display:none;"></video>
+                <canvas id="webcam-canvas" style="display:none;"></canvas>
                 <video id="processed-video" controls style="display:none;"></video>
                 <div id="video-overlay" class="video-overlay" style="display:none;">
                     <div class="spinner"></div>

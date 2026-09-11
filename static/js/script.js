@@ -183,6 +183,70 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    const webcamHidden = document.getElementById('webcam-hidden');
+    const webcamCanvas = document.getElementById('webcam-canvas');
+    let clientStream = null;
+    let frameSendInterval = null;
+    let isSendingFrame = false;
+
+    function startClientWebcam() {
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 } } })
+                .then(stream => {
+                    clientStream = stream;
+                    if (webcamHidden) {
+                        webcamHidden.srcObject = stream;
+                        webcamHidden.play().catch(() => {});
+                    }
+                    startFrameSender();
+                })
+                .catch(err => {
+                    console.warn("Client webcam access warning:", err);
+                });
+        }
+    }
+
+    function stopClientWebcam() {
+        if (frameSendInterval) clearInterval(frameSendInterval);
+        if (clientStream) {
+            clientStream.getTracks().forEach(t => t.stop());
+            clientStream = null;
+        }
+    }
+
+    function startFrameSender() {
+        if (frameSendInterval) clearInterval(frameSendInterval);
+        const ctx = webcamCanvas ? webcamCanvas.getContext('2d') : null;
+
+        frameSendInterval = setInterval(() => {
+            if (!workoutRunning || isSendingFrame || !webcamHidden || !ctx) return;
+            if (webcamHidden.videoWidth === 0 || webcamHidden.videoHeight === 0) return;
+
+            webcamCanvas.width = 640;
+            webcamCanvas.height = 480;
+            ctx.drawImage(webcamHidden, 0, 0, 640, 480);
+
+            const imageData = webcamCanvas.toDataURL('image/jpeg', 0.65);
+            isSendingFrame = true;
+
+            fetch('/process_live_frame', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: imageData, exercise_type: selectedExercise })
+            })
+                .then(r => r.json())
+                .then(res => {
+                    isSendingFrame = false;
+                    if (res.success && res.processed_image) {
+                        liveVideo.src = res.processed_image;
+                    }
+                })
+                .catch(() => {
+                    isSendingFrame = false;
+                });
+        }, 120);
+    }
+
     // Start workout
     startBtn.addEventListener('click', function () {
         if (!selectedExercise) {
@@ -229,10 +293,15 @@ document.addEventListener('DOMContentLoaded', function () {
                     currentExerciseEl.textContent = selectedExercise.replace(/_/g, ' ').toUpperCase();
                     currentSetEl.textContent = `1 / ${sets}`;
                     currentRepsEl.textContent = `0 / ${reps}`;
-                    statusInterval = setInterval(checkStatus, 1000);
 
+                    if (window.sfx) window.sfx.playRep(1);
                     speak(`Starting ${selectedExercise.replace(/_/g, ' ')}. Begin set 1!`);
-                    showToast('Workout started! Get moving 💪', 'success');
+
+                    startClientWebcam();
+
+                    clearInterval(statusInterval);
+                    statusInterval = setInterval(checkStatus, 500);
+                    showToast('Workout started! Camera feed active. 🚀', 'success');
                 } else {
                     showToast('Failed to start: ' + (data.error || 'Unknown error'), 'error');
                 }
@@ -548,6 +617,8 @@ document.addEventListener('DOMContentLoaded', function () {
         clearInterval(statusInterval);
         clearInterval(restTimerInterval);
         statusInterval = null;
+        stopClientWebcam();
+
 
         if (restOverlay) restOverlay.style.display = 'none';
         if (videoWrapper) videoWrapper.classList.remove('active');

@@ -473,17 +473,97 @@ def dashboard_data():
 @app.route('/video_feed')
 def video_feed():
     if IS_CLOUD:
-        # No webcam on cloud — return a single placeholder JPEG
         import numpy as np
         placeholder = np.zeros((480, 640, 3), dtype=np.uint8)
-        cv2.putText(placeholder, "Live camera not available", (80, 220),
-                    cv2.FONT_HERSHEY_DUPLEX, 0.8, (200, 200, 200), 2)
-        cv2.putText(placeholder, "Use Video Upload mode instead", (70, 270),
-                    cv2.FONT_HERSHEY_DUPLEX, 0.7, (100, 200, 255), 2)
+        cv2.putText(placeholder, "Live Camera Ready", (170, 220),
+                    cv2.FONT_HERSHEY_DUPLEX, 0.9, (0, 242, 254), 2)
+        cv2.putText(placeholder, "Select Exercise & Start Workout", (120, 270),
+                    cv2.FONT_HERSHEY_DUPLEX, 0.7, (200, 200, 200), 1)
         _, buf = cv2.imencode('.jpg', placeholder)
         return Response(buf.tobytes(), mimetype='image/jpeg')
     initialize_camera()
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+
+@app.route('/process_live_frame', methods=['POST'])
+def process_live_frame():
+    try:
+        data = request.json or {}
+        image_data = data.get('image')
+        exercise_type = data.get('exercise_type', 'squat')
+
+        if not image_data:
+            return jsonify({'success': False, 'error': 'No image provided'})
+
+        import base64
+        import numpy as np
+        encoded = image_data.split(',')[1] if ',' in image_data else image_data
+        nparr = np.frombuffer(base64.b64decode(encoded), np.uint8)
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+        if frame is None:
+            return jsonify({'success': False, 'error': 'Failed to decode image'})
+
+        with _state_lock:
+            running = _state['exercise_running']
+            sets_done = _state['sets_completed']
+            ex_counter = _state['exercise_counter']
+            exercise = _state['exercise_instance']
+
+        warnings = []
+        stage_str = "Get Ready"
+
+        if running and exercise:
+            results = pose_estimator.estimate_pose(frame, exercise_type)
+            if results.pose_landmarks:
+                if exercise_type == "squat":
+                    counter, angle, stage = exercise.track_squat(results.pose_landmarks.landmark, frame)
+                    layout_indicators(frame, exercise_type, (counter, angle, stage))
+                    ex_counter = counter
+                    stage_str = str(stage)
+                elif exercise_type == "push_up":
+                    counter, angle, stage = exercise.track_push_up(results.pose_landmarks.landmark, frame)
+                    layout_indicators(frame, exercise_type, (counter, angle, stage))
+                    ex_counter = counter
+                    stage_str = str(stage)
+                elif exercise_type == "hammer_curl":
+                    (cr, ar, cl, al, wr, wl, pr, pl, sr, sl) = exercise.track_hammer_curl(results.pose_landmarks.landmark, frame)
+                    layout_indicators(frame, exercise_type, (cr, ar, cl, al, wr, wl, pr, pl, sr, sl))
+                    ex_counter = max(cr, cl)
+                    stage_str = "Curling"
+                elif exercise_type == "lunge":
+                    counter, angle, stage = exercise.track_lunge(results.pose_landmarks.landmark, frame)
+                    layout_indicators(frame, exercise_type, (counter, angle, stage))
+                    ex_counter = counter
+                    stage_str = str(stage)
+                elif exercise_type == "shoulder_press":
+                    counter, angle, stage = exercise.track_shoulder_press(results.pose_landmarks.landmark, frame)
+                    layout_indicators(frame, exercise_type, (counter, angle, stage))
+                    ex_counter = counter
+                    stage_str = str(stage)
+
+                if hasattr(exercise, 'form_warnings') and exercise.form_warnings:
+                    warnings = list(exercise.form_warnings)
+
+                with _state_lock:
+                    _state['exercise_counter'] = ex_counter
+                    _state['current_stage'] = stage_str
+                    _state['current_warnings'] = warnings
+
+        _, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 70])
+        jpg_b64 = base64.b64encode(buffer).decode('utf-8')
+
+        return jsonify({
+            'success': True,
+            'processed_image': 'data:image/jpeg;base64,' + jpg_b64,
+            'reps': ex_counter,
+            'set': sets_done + 1,
+            'stage': stage_str,
+            'warnings': warnings
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
 
 
 @app.route('/start_exercise', methods=['POST'])
