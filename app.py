@@ -342,8 +342,35 @@ def process_video_file(input_path, exercise_type, reps_goal, sets_goal_val):
         logger.warning(f"Processed video not created or empty: {output_path}")
         return None
 
+    # Convert output video to browser-compatible H.264 (libx264, yuv420p) using ffmpeg
+    web_output_filename = f"web_{exercise_type}_{unique_id}.mp4"
+    web_output_path = os.path.join(app.root_path, 'static', 'videos', web_output_filename)
+
+    try:
+        import subprocess
+        cmd = [
+            'ffmpeg', '-y',
+            '-i', output_path,
+            '-c:v', 'libx264',
+            '-pix_fmt', 'yuv420p',
+            '-preset', 'fast',
+            '-movflags', '+faststart',
+            web_output_path
+        ]
+        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=60)
+        if res.returncode == 0 and os.path.exists(web_output_path) and os.path.getsize(web_output_path) > 0:
+            if os.path.exists(output_path):
+                os.remove(output_path)
+            logger.info(f"H.264 web converted video saved: {web_output_path}")
+            return web_output_path
+        else:
+            logger.warning(f"ffmpeg conversion failed: {res.stderr.decode('utf-8', errors='ignore')}")
+    except Exception as e:
+        logger.warning(f"ffmpeg conversion exception: {e}")
+
     logger.info(f"Processed video saved: {output_path}")
     return output_path
+
 
 
 # ── Routes ─────────────────────────────────────────────────────────────────────

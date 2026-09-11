@@ -1,7 +1,8 @@
 FROM python:3.10-slim
 
-# System dependencies required by OpenCV and MediaPipe (including OpenGL & GLES)
+# System dependencies required by OpenCV, MediaPipe, and FFmpeg (H.264 Web video playback)
 RUN apt-get update && apt-get install -y \
+    ffmpeg \
     libgl1 \
     libgles2 \
     libegl1 \
