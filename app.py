@@ -265,12 +265,20 @@ def process_video_file(input_path, exercise_type, reps_goal, sets_goal_val):
     output_path = os.path.join(app.root_path, 'static', 'videos', output_filename)
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
+    max_dim = 640
+    if frame_width > max_dim:
+        scale_factor = max_dim / float(frame_width)
+        out_width = int(frame_width * scale_factor)
+        out_height = int(frame_height * scale_factor)
+    else:
+        out_width = frame_width
+        out_height = frame_height
+
     fourcc = cv2.VideoWriter_fourcc(*'avc1')  # H.264 — browser-compatible
-    out = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
+    out = cv2.VideoWriter(output_path, fourcc, fps, (out_width, out_height))
     if not out.isOpened():
-        # Fallback to mp4v if avc1 not available
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        out = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
+        out = cv2.VideoWriter(output_path, fourcc, fps, (out_width, out_height))
     if not out.isOpened():
         cap.release()
         return None
@@ -280,12 +288,16 @@ def process_video_file(input_path, exercise_type, reps_goal, sets_goal_val):
     ex_running = True
     exercise_info = get_exercise_info(exercise_type)
     frame_count = 0
+    max_frames_to_process = 600  # Safety cap (20s @ 30fps) to prevent HTTP timeout
 
-    while cap.isOpened():
+    while cap.isOpened() and frame_count < max_frames_to_process:
         ret, frame = cap.read()
         if not ret:
             break
         frame_count += 1
+
+        if frame_width > max_dim:
+            frame = cv2.resize(frame, (out_width, out_height), interpolation=cv2.INTER_AREA)
 
         if ex_running:
             results = pose_estimator.estimate_pose(frame, exercise_type)
@@ -328,7 +340,7 @@ def process_video_file(input_path, exercise_type, reps_goal, sets_goal_val):
                                       cv2.FONT_HERSHEY_DUPLEX, 1.2, (255, 255, 255), (0, 180, 0), 2)
 
         if total_frames > 0:
-            progress = frame_count / total_frames * 100
+            progress = min(100.0, frame_count / min(total_frames, max_frames_to_process) * 100)
             draw_text_with_background(frame, f"Processing: {progress:.1f}%",
                                       (frame.shape[1] - 220, 50),
                                       cv2.FONT_HERSHEY_DUPLEX, 0.5, (255, 255, 255), (118, 29, 14), 1)
@@ -353,11 +365,12 @@ def process_video_file(input_path, exercise_type, reps_goal, sets_goal_val):
             '-i', output_path,
             '-c:v', 'libx264',
             '-pix_fmt', 'yuv420p',
-            '-preset', 'fast',
+            '-preset', 'ultrafast',
+            '-tune', 'fastdecode',
             '-movflags', '+faststart',
             web_output_path
         ]
-        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=60)
+        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=40)
         if res.returncode == 0 and os.path.exists(web_output_path) and os.path.getsize(web_output_path) > 0:
             if os.path.exists(output_path):
                 os.remove(output_path)
@@ -370,6 +383,7 @@ def process_video_file(input_path, exercise_type, reps_goal, sets_goal_val):
 
     logger.info(f"Processed video saved: {output_path}")
     return output_path
+
 
 
 
