@@ -19,9 +19,8 @@ class HammerCurl:
         self.standing_baseline = 160.0
 
         # Elbow flexion thresholds
-        self.angle_down = 150        # extended
-        self.angle_up   = 55         # curled
-
+        self.angle_down = 140        # extended
+        self.angle_up   = 65         # curled
 
         # Hysteresis frame counts
         self._up_frames_r = 0
@@ -29,14 +28,15 @@ class HammerCurl:
         self._up_frames_l = 0
         self._down_frames_l = 0
 
-        # ── Form thresholds ────────────────────────────────────────────────────
+        # Form thresholds
         self.swing_threshold = 40
         self.sway_min = 155
         self.shrug_threshold = 0.04
 
-        # Angle smoothing per arm
-        self._buf_r = deque(maxlen=5)
-        self._buf_l = deque(maxlen=5)
+        # Fast angle smoothing per arm
+        self._buf_r = deque(maxlen=2)
+        self._buf_l = deque(maxlen=2)
+
 
         # Shoulder baseline y
         self._shoulder_base_r = None

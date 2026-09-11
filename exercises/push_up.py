@@ -17,24 +17,23 @@ class PushUp:
         self.standing_baseline = 160.0
 
         # Elbow flexion thresholds
-        self.angle_up   = 150        # straight
-        self.angle_down = 95         # bent
-
+        self.angle_up   = 145        # straight
+        self.angle_down = 100        # bent
 
         # Hysteresis frame counts
         self._up_frames_count = 0
         self._down_frames_count = 0
 
-        # ── Form thresholds ────────────────────────────────────────────────────
+        # Form thresholds
         self.align_min = 160
         self.align_max = 195
         self.flare_threshold = 50
         self.head_drop_threshold = 0.06
 
-        # Angle smoothing
-        self._angle_buf = deque(maxlen=5)
-
+        # Fast angle smoothing buffer
+        self._angle_buf = deque(maxlen=2)
         self.form_warnings = []
+
 
     # ── Main tracking ──────────────────────────────────────────────────────────
     def track_push_up(self, landmarks, frame):

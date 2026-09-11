@@ -16,17 +16,17 @@ class ShoulderPress:
         self.calibration_limit = 25
 
         # Arm extension thresholds (Shoulder -> Elbow -> Wrist)
-        self.angle_down = 95.0   # Elbows bent at shoulder level
-        self.angle_up = 150.0    # Overhead lockout
-
+        self.angle_down = 105.0   # Elbows bent at shoulder level
+        self.angle_up = 145.0    # Overhead lockout
 
         # Hysteresis frame counts
         self._up_frames_count = 0
         self._down_frames_count = 0
 
-        # Angle smoothing buffer
-        self._angle_buf = deque(maxlen=5)
+        # Fast angle smoothing buffer
+        self._angle_buf = deque(maxlen=2)
         self.form_warnings = []
+
 
     def track_shoulder_press(self, landmarks, frame):
         h, w = frame.shape[:2]

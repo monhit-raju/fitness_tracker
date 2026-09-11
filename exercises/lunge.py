@@ -17,9 +17,8 @@ class Lunge:
         self.standing_baseline = 165.0
 
         # Angle thresholds (hip -> knee -> ankle)
-        self.angle_up = 155.0
-        self.angle_down = 105.0
-
+        self.angle_up = 145.0
+        self.angle_down = 110.0
 
         # Hysteresis frame counts
         self._up_frames_count = 0
@@ -28,9 +27,10 @@ class Lunge:
         # Form thresholds
         self.torso_lean_min = 135.0  # Shoulder-Hip-Knee angle
 
-        # Angle smoothing buffer
-        self._angle_buf = deque(maxlen=5)
+        # Fast angle smoothing buffer
+        self._angle_buf = deque(maxlen=2)
         self.form_warnings = []
+
 
     def track_lunge(self, landmarks, frame):
         h, w = frame.shape[:2]

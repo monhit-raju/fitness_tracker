@@ -17,28 +17,22 @@ class Squat:
         self.standing_baseline = 170.0
 
         # Flexion thresholds (hip → knee → ankle)
-        self.angle_up   = 160        # standing
-        self.angle_down = 95         # squat target depth
+        self.angle_up   = 150        # standing
+        self.angle_down = 100        # squat target depth
 
         # Hysteresis frame counts
         self._up_frames_count = 0
         self._down_frames_count = 0
 
-
-        # ── Form thresholds ────────────────────────────────────────────────────
-        # Torso lean: shoulder → hip → knee
+        # Form thresholds
         self.torso_lean_min = 130
-
-        # Knee symmetry
         self.knee_symmetry_threshold = 25
-
-        # Heel rise
         self.heel_rise_threshold = 0.15
 
-        # Angle smoothing buffer
-        self._angle_buf = deque(maxlen=5)
-
+        # Fast angle smoothing buffer
+        self._angle_buf = deque(maxlen=2)
         self.form_warnings = []
+
 
     # ── Main tracking ──────────────────────────────────────────────────────────
     def track_squat(self, landmarks, frame):
