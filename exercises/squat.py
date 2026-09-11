@@ -11,18 +11,19 @@ class Squat:
         self.stage   = None          # None -> "up" -> "down" -> "up"
 
         # Calibration state variables
-        self.calibrated = False
+        self.calibrated = True
         self.calibration_frames = []
         self.calibration_limit = 25
         self.standing_baseline = 170.0
 
         # Flexion thresholds (hip → knee → ankle)
-        self.angle_up   = 165        # standing (calibrated dynamically)
-        self.angle_down = 95         # squat target depth (calibrated dynamically)
+        self.angle_up   = 160        # standing
+        self.angle_down = 95         # squat target depth
 
         # Hysteresis frame counts
         self._up_frames_count = 0
         self._down_frames_count = 0
+
 
         # ── Form thresholds ────────────────────────────────────────────────────
         # Torso lean: shoulder → hip → knee
@@ -155,18 +156,19 @@ class Squat:
         if smooth_angle > self.angle_up:
             self._up_frames_count += 1
             self._down_frames_count = 0
-            if self._up_frames_count >= 3:
+            if self._up_frames_count >= 1:
                 if self.stage == "down":
                     self.counter += 1
                 self.stage = "up"
         elif smooth_angle < self.angle_down:
             self._down_frames_count += 1
             self._up_frames_count = 0
-            if self._down_frames_count >= 3:
+            if self._down_frames_count >= 1:
                 self.stage = "down"
         else:
             self._up_frames_count = 0
             self._down_frames_count = 0
+
 
         stage_label = {
             None:   "Get Ready",

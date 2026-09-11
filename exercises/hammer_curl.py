@@ -13,14 +13,15 @@ class HammerCurl:
         self.stage_left    = None
 
         # Calibration state variables
-        self.calibrated = False
+        self.calibrated = True
         self.calibration_frames = []
         self.calibration_limit = 25
         self.standing_baseline = 160.0
 
         # Elbow flexion thresholds
-        self.angle_down = 155        # extended (calibrated dynamically)
-        self.angle_up   = 50         # curled (calibrated dynamically)
+        self.angle_down = 150        # extended
+        self.angle_up   = 55         # curled
+
 
         # Hysteresis frame counts
         self._up_frames_r = 0
@@ -167,14 +168,14 @@ class HammerCurl:
         if angle_r > self.angle_down:
             self._down_frames_r += 1
             self._up_frames_r = 0
-            if self._down_frames_r >= 3:
+            if self._down_frames_r >= 1:
                 if self.stage_right == "up":
                     self.counter_right += 1
                 self.stage_right = "down"
         elif angle_r < self.angle_up:
             self._up_frames_r += 1
             self._down_frames_r = 0
-            if self._up_frames_r >= 3:
+            if self._up_frames_r >= 1:
                 self.stage_right = "up"
         else:
             self._up_frames_r = 0
@@ -184,18 +185,19 @@ class HammerCurl:
         if angle_l > self.angle_down:
             self._down_frames_l += 1
             self._up_frames_l = 0
-            if self._down_frames_l >= 3:
+            if self._down_frames_l >= 1:
                 if self.stage_left == "up":
                     self.counter_left += 1
                 self.stage_left = "down"
         elif angle_l < self.angle_up:
             self._up_frames_l += 1
             self._down_frames_l = 0
-            if self._up_frames_l >= 3:
+            if self._up_frames_l >= 1:
                 self.stage_left = "up"
         else:
             self._up_frames_l = 0
             self._down_frames_l = 0
+
 
         # ── Form warnings (right side panel) ──────────────────────────────────
         self.form_warnings = []

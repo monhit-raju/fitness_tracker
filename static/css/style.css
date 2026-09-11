@@ -1045,13 +1045,95 @@ body {
     gap: 8px;
 }
 
-.guide-tab-content ul {
-    padding-left: 20px;
-    color: var(--text-muted);
-    line-height: 1.6;
+/* Gamification XP Nav Widget */
+.xp-nav-widget {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid var(--border-color);
+    padding: 6px 14px;
+    border-radius: 20px;
+    margin: 0 16px;
 }
 
-.guide-tab-content li {
-    margin-bottom: 8px;
+.level-badge {
+    background: linear-gradient(135deg, #a855f7, #6366f1);
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 12px;
+    letter-spacing: 0.5px;
+    box-shadow: 0 0 10px rgba(168, 85, 247, 0.4);
 }
+
+.xp-bar-container {
+    width: 90px;
+    height: 7px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.xp-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--neon-cyan), var(--neon-mint));
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+.xp-text {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--neon-cyan);
+}
+
+.summary-grid.grid-4 {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+@media (max-width: 768px) {
+    .summary-grid.grid-4 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.highlight-box {
+    background: rgba(0, 242, 254, 0.05);
+    border-color: rgba(0, 242, 254, 0.2);
+}
+
+.input-group-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.cam-test-preview-box {
+    border: 1px solid var(--neon-cyan);
+    box-shadow: 0 0 25px rgba(0, 242, 254, 0.2);
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 16px;
+}
+
+.calibration-checks-grid {
+    display: flex;
+    justify-content: space-around;
+    gap: 10px;
+}
+
+.cal-check-item {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-color);
+    padding: 8px 16px;
+    border-radius: 12px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 

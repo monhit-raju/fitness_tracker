@@ -36,3 +36,8 @@ Thumbs.db
 dist/
 build/
 *.egg-info/
+
+# Task models & SQLite database
+*.task
+db/*.db
+

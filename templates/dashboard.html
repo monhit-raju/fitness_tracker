@@ -158,7 +158,7 @@
                         </thead>
                         <tbody>
                             {% for workout in recent_workouts %}
-                            <tr>
+                            <tr class="workout-row" data-id="{{ workout.id if workout.id else '' }}">
                                 <td>{{ workout.date }}</td>
                                 <td><i class="fa-solid fa-circle-play" style="color: var(--neon-cyan); margin-right: 8px;"></i>{{ workout.exercise }}</td>
                                 <td>{{ workout.sets }}</td>
@@ -176,6 +176,56 @@
         </div>
     </div>
 
+    <!-- Workout Session Inspector Modal -->
+    <div id="inspector-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-card modal-lg">
+            <div class="modal-header">
+                <h2><i class="fa-solid fa-magnifying-glass-chart"></i> Workout Session Breakdown</h2>
+                <button class="modal-close-btn" id="close-inspector-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="summary-grid grid-4" style="margin-bottom:20px;">
+                    <div class="summary-item">
+                        <span class="summary-label">Exercise</span>
+                        <span class="summary-val" id="insp-exercise">Squat</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Total Duration</span>
+                        <span class="summary-val" id="insp-duration">02:15</span>
+                    </div>
+                    <div class="summary-item highlight-box">
+                        <span class="summary-label">KFI Score</span>
+                        <span class="summary-val" id="insp-kfi" style="color:var(--neon-cyan);">95</span>
+                    </div>
+                    <div class="summary-item highlight-box">
+                        <span class="summary-label">Estimated Calories</span>
+                        <span class="summary-val" id="insp-calories" style="color:#ffaa00;">14.5 kcal</span>
+                    </div>
+                </div>
+                <h4><i class="fa-solid fa-list-ol"></i> Rep-by-Rep Posture Analysis Logs</h4>
+                <div class="table-responsive" style="max-height:220px; overflow-y:auto; margin-top:10px;">
+                    <table class="workout-table" style="font-size:0.85rem;">
+                        <thead>
+                            <tr>
+                                <th>Rep #</th>
+                                <th>Joint Angle</th>
+                                <th>Phase Stage</th>
+                                <th>Logged Warning / Detail</th>
+                            </tr>
+                        </thead>
+                        <tbody id="insp-rep-table-body">
+                            <tr><td colspan="4" style="text-align:center;">Loading rep logs...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn primary-btn" id="inspector-close-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
     <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 </body>
 </html>
+

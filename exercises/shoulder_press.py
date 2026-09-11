@@ -11,13 +11,14 @@ class ShoulderPress:
         self.stage = None  # None -> "down" -> "up" -> "down"
 
         # Calibration state
-        self.calibrated = False
+        self.calibrated = True
         self.calibration_frames = []
         self.calibration_limit = 25
 
         # Arm extension thresholds (Shoulder -> Elbow -> Wrist)
-        self.angle_down = 90.0   # Elbows bent at shoulder level
-        self.angle_up = 155.0    # Overhead lockout
+        self.angle_down = 95.0   # Elbows bent at shoulder level
+        self.angle_up = 150.0    # Overhead lockout
+
 
         # Hysteresis frame counts
         self._up_frames_count = 0
@@ -82,14 +83,15 @@ class ShoulderPress:
         if smooth_angle <= self.angle_down:
             self._down_frames_count += 1
             self._up_frames_count = 0
-            if self._down_frames_count >= 2 and self.stage != "down":
+            if self._down_frames_count >= 1 and self.stage != "down":
                 self.stage = "down"
         elif smooth_angle >= self.angle_up:
             self._up_frames_count += 1
             self._down_frames_count = 0
-            if self._up_frames_count >= 2 and self.stage == "down":
+            if self._up_frames_count >= 1 and self.stage == "down":
                 self.stage = "up"
                 self.counter += 1
+
 
         # Draw skeleton
         scale = max(1.0, min(1.8, h / 960.0))

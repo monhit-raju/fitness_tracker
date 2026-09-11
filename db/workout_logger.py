@@ -71,7 +71,10 @@ class WorkoutLogger:
                     start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     end_time TIMESTAMP NULL,
                     video_path VARCHAR(500) NULL,
-                    details JSON NULL
+                    details JSON NULL,
+                    kfi_score INT DEFAULT 100,
+                    rom_percentage INT DEFAULT 95,
+                    calories_burned FLOAT DEFAULT 0.0
                 )
             """)
             cursor.execute("""
@@ -84,6 +87,25 @@ class WorkoutLogger:
                     stage VARCHAR(50) DEFAULT NULL,
                     details JSON NULL,
                     FOREIGN KEY (workout_id) REFERENCES workouts(id) ON DELETE CASCADE
+                )
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS user_profile (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT UNIQUE DEFAULT 1,
+                    name VARCHAR(100) DEFAULT 'Athlete',
+                    weight_kg FLOAT DEFAULT 70.0,
+                    height_cm FLOAT DEFAULT 175.0,
+                    daily_rep_target INT DEFAULT 50,
+                    xp INT DEFAULT 120,
+                    level INT DEFAULT 1
+                )
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS routines (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    title VARCHAR(100) NOT NULL,
+                    exercises JSON NOT NULL
                 )
             """)
         else:
@@ -99,7 +121,10 @@ class WorkoutLogger:
                     start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     end_time TIMESTAMP NULL,
                     video_path TEXT NULL,
-                    details TEXT NULL
+                    details TEXT NULL,
+                    kfi_score INTEGER DEFAULT 100,
+                    rom_percentage INTEGER DEFAULT 95,
+                    calories_burned REAL DEFAULT 0.0
                 )
             """)
             cursor.execute("""
@@ -114,8 +139,46 @@ class WorkoutLogger:
                     FOREIGN KEY (workout_id) REFERENCES workouts(id) ON DELETE CASCADE
                 )
             """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS user_profile (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER UNIQUE DEFAULT 1,
+                    name TEXT DEFAULT 'Athlete',
+                    weight_kg REAL DEFAULT 70.0,
+                    height_cm REAL DEFAULT 175.0,
+                    daily_rep_target INTEGER DEFAULT 50,
+                    xp INTEGER DEFAULT 120,
+                    level INTEGER DEFAULT 1
+                )
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS routines (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title TEXT NOT NULL,
+                    exercises TEXT NOT NULL
+                )
+            """)
+
+        # Ensure analytics columns exist on existing table schema
+        for col_def in [
+            ("kfi_score", "INT DEFAULT 100" if self.db_type == 'mysql' else "INTEGER DEFAULT 100"),
+            ("rom_percentage", "INT DEFAULT 95" if self.db_type == 'mysql' else "INTEGER DEFAULT 95"),
+            ("calories_burned", "FLOAT DEFAULT 0.0" if self.db_type == 'mysql' else "REAL DEFAULT 0.0")
+        ]:
+            try:
+                cursor.execute(f"ALTER TABLE workouts ADD COLUMN {col_def[0]} {col_def[1]}")
+            except Exception:
+                pass
+
+        if self.db_type == 'mysql':
+            cursor.execute("INSERT IGNORE INTO user_profile (user_id, name, weight_kg, height_cm, daily_rep_target, xp, level) VALUES (1, 'Athlete', 70.0, 175.0, 50, 120, 1)")
+        else:
+            cursor.execute("INSERT OR IGNORE INTO user_profile (user_id, name, weight_kg, height_cm, daily_rep_target, xp, level) VALUES (1, 'Athlete', 70.0, 175.0, 50, 120, 1)")
+
+
         self.connection.commit()
         print(f"Database tables verified successfully [{self.db_type.upper()}]")
+
 
     def _exec(self, sql, params=()):
         if not self.connection:
@@ -151,30 +214,32 @@ class WorkoutLogger:
     def update_workout_end(self, workout_id, duration_seconds, video_path=None):
         if not self.connection or not workout_id:
             return
-        if self.db_type == 'sqlite':
-            self._exec("""
-                UPDATE workouts
-                SET end_time = CURRENT_TIMESTAMP, duration_seconds = %s, video_path = %s
-                WHERE id = %s
-            """, (duration_seconds, video_path, workout_id))
-        else:
-            self._exec("""
-                UPDATE workouts
-                SET end_time = CURRENT_TIMESTAMP, duration_seconds = %s, video_path = %s
-                WHERE id = %s
-            """, (duration_seconds, video_path, workout_id))
-        self.connection.commit()
-
-    def update_workout_summary(self, workout_id, completed_sets, duration, video_path):
-        if not self.connection or not workout_id:
-            return
         self._exec("""
             UPDATE workouts
-            SET sets = %s, duration_seconds = %s, end_time = CURRENT_TIMESTAMP, video_path = %s
+            SET end_time = CURRENT_TIMESTAMP, duration_seconds = %s, video_path = %s
             WHERE id = %s
-        """, (completed_sets, duration, video_path, workout_id))
+        """, (duration_seconds, video_path, workout_id))
         self.connection.commit()
-        print(f"Workout {workout_id} summary updated")
+
+    def update_workout_summary(self, workout_id, completed_sets, duration, video_path, kfi_score=95, rom_percentage=90, calories_burned=0.0):
+        if not self.connection or not workout_id:
+            return
+        # Try updating with new analytics columns
+        try:
+            self._exec("""
+                UPDATE workouts
+                SET sets = %s, duration_seconds = %s, end_time = CURRENT_TIMESTAMP, video_path = %s,
+                    kfi_score = %s, rom_percentage = %s, calories_burned = %s
+                WHERE id = %s
+            """, (completed_sets, duration, video_path, kfi_score, rom_percentage, calories_burned, workout_id))
+        except Exception:
+            self._exec("""
+                UPDATE workouts
+                SET sets = %s, duration_seconds = %s, end_time = CURRENT_TIMESTAMP, video_path = %s
+                WHERE id = %s
+            """, (completed_sets, duration, video_path, workout_id))
+        self.connection.commit()
+        print(f"Workout {workout_id} summary updated with analytics (KFI: {kfi_score}, Calories: {calories_burned})")
 
     def _row_to_dict(self, row):
         if row is None:
@@ -191,7 +256,8 @@ class WorkoutLogger:
             return []
         cursor = self._exec("""
             SELECT id, exercise_type, sets, reps, duration_seconds,
-                   DATE(start_time) as date, start_time, end_time, video_path
+                   DATE(start_time) as date, start_time, end_time, video_path,
+                   COALESCE(kfi_score, 90) as kfi_score, COALESCE(calories_burned, 0) as calories_burned
             FROM workouts
             ORDER BY start_time DESC
             LIMIT %s
@@ -240,12 +306,13 @@ class WorkoutLogger:
 
     def get_user_stats(self):
         if not self.connection:
-            return {'total_workouts': 0, 'total_exercises': 0, 'streak_days': 0}
+            return {'total_workouts': 0, 'total_exercises': 0, 'streak_days': 0, 'total_calories': 0.0}
 
         cursor = self._exec("""
             SELECT
                 COUNT(DISTINCT id) as total_workouts,
-                COALESCE(SUM(sets * reps), 0) as total_exercises
+                COALESCE(SUM(sets * reps), 0) as total_exercises,
+                COALESCE(SUM(calories_burned), 0.0) as total_calories
             FROM workouts
             WHERE user_id = 1
         """)
@@ -270,7 +337,59 @@ class WorkoutLogger:
         return {
             'total_workouts': stats.get('total_workouts', 0),
             'total_exercises': stats.get('total_exercises', 0),
-            'streak_days': streak_row.get('streak_days', 0)
+            'streak_days': streak_row.get('streak_days', 0),
+            'total_calories': round(stats.get('total_calories', 0.0), 1)
+        }
+
+    def get_user_profile(self):
+        if not self.connection:
+            return {'name': 'Athlete', 'weight_kg': 70.0, 'height_cm': 175.0, 'daily_rep_target': 50, 'xp': 120, 'level': 1}
+        cursor = self._exec("SELECT name, weight_kg, height_cm, daily_rep_target, xp, level FROM user_profile WHERE user_id = 1")
+        row = self._row_to_dict(cursor.fetchone())
+        if not row:
+            return {'name': 'Athlete', 'weight_kg': 70.0, 'height_cm': 175.0, 'daily_rep_target': 50, 'xp': 120, 'level': 1}
+        return row
+
+    def update_user_profile(self, name, weight_kg, height_cm, daily_rep_target):
+        if not self.connection:
+            return
+        self._exec("""
+            UPDATE user_profile
+            SET name = %s, weight_kg = %s, height_cm = %s, daily_rep_target = %s
+            WHERE user_id = 1
+        """, (name, weight_kg, height_cm, daily_rep_target))
+        self.connection.commit()
+
+    def add_user_xp(self, xp_gained):
+        if not self.connection:
+            return {'xp': 0, 'level': 1, 'leveled_up': False}
+        profile = self.get_user_profile()
+        new_xp = profile['xp'] + xp_gained
+        new_level = int(new_xp // 250) + 1
+        leveled_up = new_level > profile['level']
+
+        self._exec("""
+            UPDATE user_profile
+            SET xp = %s, level = %s
+            WHERE user_id = 1
+        """, (new_xp, new_level))
+        self.connection.commit()
+        return {'xp': new_xp, 'level': new_level, 'leveled_up': leveled_up}
+
+    def get_workout_breakdown(self, workout_id):
+        if not self.connection or not workout_id:
+            return None
+        cursor = self._exec("SELECT * FROM workouts WHERE id = %s", (workout_id,))
+        workout = self._row_to_dict(cursor.fetchone())
+        if not workout:
+            return None
+
+        cursor = self._exec("SELECT rep_count, angle, stage, timestamp, details FROM analysis_details WHERE workout_id = %s ORDER BY rep_count ASC", (workout_id,))
+        details_rows = self._rows_to_dicts(cursor.fetchall())
+
+        return {
+            'workout': workout,
+            'details': details_rows
         }
 
     def get_personal_records(self):
@@ -289,8 +408,9 @@ class WorkoutLogger:
 
         cursor = self._exec("SELECT MAX(duration_seconds) as max_duration FROM workouts")
         row = self._row_to_dict(cursor.fetchone())
-        records['max_duration'] = row.get('max_duration', 0) if row else 0
+        records['max_duration'] = int(row.get('max_duration') or 0) if row else 0
         return records
+
 
     def get_yearly_activity(self):
         if not self.connection:
@@ -321,7 +441,8 @@ class WorkoutLogger:
         if not self.connection:
             return []
         cursor = self._exec("""
-            SELECT id, exercise_type, sets, reps, duration_seconds, start_time, end_time, video_path
+            SELECT id, exercise_type, sets, reps, duration_seconds, start_time, end_time, video_path,
+                   COALESCE(kfi_score, 90) as kfi_score, COALESCE(calories_burned, 0) as calories_burned
             FROM workouts
             ORDER BY start_time DESC
         """)
@@ -331,4 +452,5 @@ class WorkoutLogger:
         if self.connection:
             self.connection.close()
             print(f"Database connection closed [{self.db_type.upper() if self.db_type else 'N/A'}]")
+
 

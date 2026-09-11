@@ -314,34 +314,14 @@ def process_video_file(input_path, exercise_type, reps_goal, sets_goal_val):
 
                 draw_text_with_background(frame, f"Exercise: {exercise_info.get('name', 'N/A')}", (40, 50),
                                           cv2.FONT_HERSHEY_DUPLEX, 0.7, (255, 255, 255), (118, 29, 14), 1)
-                draw_text_with_background(frame, f"Reps Goal: {reps_goal}", (40, 80),
+                draw_text_with_background(frame, f"Mode: Video Auto Count", (40, 80),
                                           cv2.FONT_HERSHEY_DUPLEX, 0.7, (255, 255, 255), (118, 29, 14), 1)
-                draw_text_with_background(frame, f"Sets Goal: {sets_goal_val}", (40, 110),
-                                          cv2.FONT_HERSHEY_DUPLEX, 0.7, (255, 255, 255), (118, 29, 14), 1)
-                draw_text_with_background(frame, f"Current Set: {sets_done + 1}", (40, 140),
-                                          cv2.FONT_HERSHEY_DUPLEX, 0.7, (255, 255, 255), (118, 29, 14), 1)
-
-                if ex_counter >= reps_goal:
-                    sets_done += 1
-                    ex_counter = 0
-                    if exercise_type in ("squat", "push_up"):
-                        exercise.counter = 0
-                    elif exercise_type == "hammer_curl":
-                        exercise.counter_right = 0
-                        exercise.counter_left = 0
-
-                    if sets_done >= sets_goal_val:
-                        ex_running = False
-                        draw_text_with_background(frame, "WORKOUT COMPLETE!",
-                                                  (frame.shape[1] // 2 - 150, frame.shape[0] // 2),
-                                                  cv2.FONT_HERSHEY_DUPLEX, 1.2, (255, 255, 255), (0, 180, 0), 2)
-                    else:
-                        draw_text_with_background(frame, f"SET {sets_done} COMPLETE! Rest 30s",
-                                                  (frame.shape[1] // 2 - 200, frame.shape[0] // 2),
-                                                  cv2.FONT_HERSHEY_DUPLEX, 1.0, (255, 255, 255), (0, 0, 200), 2)
+                draw_text_with_background(frame, f"Reps Counted: {ex_counter}", (40, 110),
+                                          cv2.FONT_HERSHEY_DUPLEX, 0.7, (0, 242, 254), (118, 29, 14), 1)
             else:
                 draw_text_with_background(frame, "No pose detected", (40, 50),
                                           cv2.FONT_HERSHEY_DUPLEX, 0.7, (255, 255, 255), (118, 29, 14), 1)
+
         else:
             draw_text_with_background(frame, "WORKOUT COMPLETE!",
                                       (frame.shape[1] // 2 - 150, frame.shape[0] // 2),
@@ -387,18 +367,20 @@ def dashboard():
 
         formatted_workouts = []
         for w in recent_workouts:
-            dur = w.get('duration_seconds') or 0
+            dur = int(w.get('duration_seconds') or 0)
             formatted_workouts.append({
+                'id': w.get('id', ''),
                 'date': str(w.get('date', w.get('start_time', 'N/A'))),
                 'exercise': (w.get('exercise_type') or '').replace('_', ' ').title(),
-                'sets': w.get('sets', 0),
-                'reps': w.get('reps', 0),
+                'sets': w.get('sets') or 0,
+                'reps': w.get('reps') or 0,
                 'duration': f"{dur // 60}:{dur % 60:02d}"
             })
 
         weekly_workout_count = sum(v['workout_count'] for v in weekly_stats.values())
-        max_dur = pr_records.get('max_duration', 0)
+        max_dur = int(pr_records.get('max_duration') or 0)
         formatted_max_dur = f"{max_dur // 60}:{max_dur % 60:02d}"
+
 
         return render_template('dashboard.html',
                                recent_workouts=formatted_workouts,
@@ -544,26 +526,72 @@ def stop_exercise():
     completed_sets = sets_done + (1 if ex_counter > 0 else 0)
     total_reps = (sets_done * ex_goal) + ex_counter
 
+    # Get user profile & exercise MET data
+    profile = workout_logger.get_user_profile()
+    ex_type = ex_data['type'] if ex_data else 'squat'
+    ex_info = get_exercise_info(ex_type)
+
+    met = ex_info.get('met_val', 6.0)
+    weight_kg = profile.get('weight_kg', 70.0)
+    duration_hours = max(duration, 15) / 3600.0
+    calories_burned = round(met * weight_kg * duration_hours, 1) if total_reps > 0 else 0.0
+
+    # Compute Kinetic Form Index (KFI) & Range of Motion (ROM %)
+    kfi_score = max(50, 100 - (len(warnings) * 10)) if total_reps > 0 else 100
+    rom_percentage = max(70, 100 - (len(warnings) * 5)) if total_reps > 0 else 95
+
+    # Compute XP Gained
+    xp_gained = (total_reps * 5) + (completed_sets * 15) + (25 if kfi_score >= 85 else 10)
+    xp_result = workout_logger.add_user_xp(xp_gained) if total_reps > 0 else {'xp': profile['xp'], 'level': profile['level'], 'leveled_up': False}
+
     if running and ex_data and workout_id:
         if writer and writer.isOpened():
             writer.release()
-        workout_logger.update_workout_summary(workout_id, completed_sets, duration, vid_path)
-
-    # Compute posture form accuracy score (%)
-    form_accuracy = max(40, 100 - (len(warnings) * 12)) if total_reps > 0 else 100
+        workout_logger.update_workout_summary(workout_id, completed_sets, duration, vid_path, kfi_score, rom_percentage, calories_burned)
 
     summary_data = {
-        'exercise': (ex_data['type'] if ex_data else 'Workout').replace('_', ' ').title(),
+        'exercise': ex_type.replace('_', ' ').title(),
         'duration_formatted': f"{duration // 60}:{duration % 60:02d}",
         'duration_seconds': duration,
         'completed_sets': completed_sets,
         'total_reps': total_reps,
-        'form_accuracy': form_accuracy,
+        'form_accuracy': kfi_score,
+        'kfi_score': kfi_score,
+        'rom_percentage': rom_percentage,
+        'calories_burned': calories_burned,
+        'xp_gained': xp_gained if total_reps > 0 else 0,
+        'new_xp': xp_result['xp'],
+        'level': xp_result['level'],
+        'leveled_up': xp_result['leveled_up'],
         'warnings_log': warnings
     }
 
     _set(exercise_running=False, current_workout_id=None, video_path=None, video_writer=None, current_warnings=[], current_stage=None, warnings_log=[])
     return jsonify({'success': True, 'summary': summary_data})
+
+
+@app.route('/api/profile', methods=['GET', 'POST'])
+def api_profile():
+    if request.method == 'POST':
+        data = request.json or {}
+        name = data.get('name', 'Athlete').strip()
+        weight_kg = float(data.get('weight_kg', 70.0))
+        height_cm = float(data.get('height_cm', 175.0))
+        daily_target = int(data.get('daily_rep_target', 50))
+
+        workout_logger.update_user_profile(name, weight_kg, height_cm, daily_target)
+        return jsonify({'success': True, 'profile': workout_logger.get_user_profile()})
+
+    return jsonify({'success': True, 'profile': workout_logger.get_user_profile()})
+
+
+@app.route('/api/workout_detail/<int:workout_id>')
+def api_workout_detail(workout_id):
+    breakdown = workout_logger.get_workout_breakdown(workout_id)
+    if not breakdown:
+        return jsonify({'success': False, 'error': 'Workout not found'}), 404
+    return jsonify({'success': True, 'data': breakdown})
+
 
 
 @app.route('/get_status', methods=['GET'])

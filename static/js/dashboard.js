@@ -190,4 +190,72 @@ document.addEventListener('DOMContentLoaded', function () {
     if (refreshBtn) {
         refreshBtn.addEventListener('click', fetchDashboardData);
     }
+
+    // Workout Session Inspector Modal Handlers
+    const inspectorModal = document.getElementById('inspector-modal');
+    const closeInspectorBtn = document.getElementById('close-inspector-btn');
+    const inspectorCloseBtn = document.getElementById('inspector-close-btn');
+
+    if (closeInspectorBtn) closeInspectorBtn.addEventListener('click', () => inspectorModal.style.display = 'none');
+    if (inspectorCloseBtn) inspectorCloseBtn.addEventListener('click', () => inspectorModal.style.display = 'none');
+
+    document.querySelectorAll('.workout-row').forEach(row => {
+        row.style.cursor = 'pointer';
+        row.addEventListener('click', function () {
+            const workoutId = this.getAttribute('data-id');
+            if (!workoutId) return;
+
+            document.getElementById('insp-rep-table-body').innerHTML = '<tr><td colspan="4" style="text-align:center;"><i class="fa-solid fa-spinner fa-spin"></i> Loading rep analysis...</td></tr>';
+            inspectorModal.style.display = 'flex';
+
+            fetch(`/api/workout_detail/${workoutId}`)
+                .then(r => r.json())
+                .then(res => {
+                    if (res.success && res.data) {
+                        const w = res.data.workout;
+                        const details = res.data.details || [];
+
+                        document.getElementById('insp-exercise').textContent = (w.exercise_type || '').replace(/_/g, ' ').toUpperCase();
+                        const dur = w.duration_seconds || 0;
+                        document.getElementById('insp-duration').textContent = `${Math.floor(dur / 60)}:${(dur % 60).toString().padStart(2, '0')}`;
+                        document.getElementById('insp-kfi').textContent = w.kfi_score || 95;
+                        document.getElementById('insp-calories').textContent = `${w.calories_burned || 0} kcal`;
+
+                        const tbody = document.getElementById('insp-rep-table-body');
+                        tbody.innerHTML = '';
+
+                        if (details.length > 0) {
+                            details.forEach(d => {
+                                const tr = document.createElement('tr');
+                                const angleStr = d.angle ? `${Math.round(d.angle)}°` : 'N/A';
+                                const stageStr = d.stage || '—';
+                                const detailsObj = d.details ? (typeof d.details === 'string' ? JSON.parse(d.details) : d.details) : null;
+                                let note = 'Clean Rep';
+                                if (detailsObj && (detailsObj.warning || detailsObj.right?.warning || detailsObj.left?.warning)) {
+                                    note = `<span style="color:var(--neon-rose);"><i class="fa-solid fa-triangle-exclamation"></i> ${detailsObj.warning || detailsObj.right?.warning || detailsObj.left?.warning}</span>`;
+                                } else {
+                                    note = '<span style="color:var(--neon-mint);"><i class="fa-solid fa-check"></i> Good Form</span>';
+                                }
+
+                                tr.innerHTML = `
+                                    <td><strong>Rep ${d.rep_count}</strong></td>
+                                    <td>${angleStr}</td>
+                                    <td><span class="badge">${stageStr}</span></td>
+                                    <td>${note}</td>
+                                `;
+                                tbody.appendChild(tr);
+                            });
+                        } else {
+                            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">No rep-by-rep breakdown recorded for this session.</td></tr>';
+                        }
+                    } else {
+                        document.getElementById('insp-rep-table-body').innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--neon-rose);">Failed to load workout details.</td></tr>';
+                    }
+                })
+                .catch(() => {
+                    document.getElementById('insp-rep-table-body').innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--neon-rose);">Network error loading details.</td></tr>';
+                });
+        });
+    });
 });
+

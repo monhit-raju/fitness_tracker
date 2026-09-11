@@ -134,12 +134,15 @@ document.addEventListener('DOMContentLoaded', function () {
         toastTimer = setTimeout(() => { toast.className = 'toast'; }, 3500);
     }
 
+    const exerciseConfigCard = document.querySelector('.exercise-config');
+
     // Mode toggle
     modeRadios.forEach(radio => {
         radio.addEventListener('change', function () {
             currentMode = this.value;
             if (currentMode === 'live') {
                 uploadSection.style.display = 'none';
+                if (exerciseConfigCard) exerciseConfigCard.style.display = 'block';
                 liveVideo.style.display = 'block';
                 processedVideo.style.display = 'none';
                 startBtn.style.display = '';
@@ -149,6 +152,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (fileNameDisplay) fileNameDisplay.textContent = '';
             } else {
                 uploadSection.style.display = 'block';
+                if (exerciseConfigCard) exerciseConfigCard.style.display = 'none';
                 liveVideo.style.display = 'none';
                 processedVideo.style.display = 'none';
                 startBtn.style.display = 'none';
@@ -267,18 +271,11 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        const sets = parseInt(setsInput.value);
-        const reps = parseInt(repsInput.value);
-        if (!sets || sets < 1 || !reps || reps < 1) {
-            showToast('Please enter valid sets and reps.', 'error');
-            return;
-        }
-
         const formData = new FormData();
         formData.append('video', videoFileInput.files[0]);
         formData.append('exercise_type', selectedExercise);
-        formData.append('sets', sets);
-        formData.append('reps', reps);
+        formData.append('sets', 1);
+        formData.append('reps', 999);
 
         uploadBtn.disabled = true;
         uploadBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing…';
@@ -316,7 +313,95 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     });
 
-    // Status polling
+    // SFX Engine & Sound Toggle
+    const sfxToggleBtn = document.getElementById('sfx-toggle-btn');
+    if (sfxToggleBtn) {
+        sfxToggleBtn.addEventListener('click', function () {
+            if (window.sfx) {
+                window.sfx.enabled = !window.sfx.enabled;
+                if (window.sfx.enabled) {
+                    this.classList.add('active');
+                    this.innerHTML = '<i class="fa-solid fa-volume-high"></i> SFX ON';
+                    window.sfx.playRep(1);
+                } else {
+                    this.classList.remove('active');
+                    this.innerHTML = '<i class="fa-solid fa-volume-xmark"></i> SFX OFF';
+                }
+            }
+        });
+    }
+
+    // Profile & Gamification State
+    function fetchProfileData() {
+        fetch('/api/profile')
+            .then(r => r.json())
+            .then(data => {
+                if (data.success && data.profile) {
+                    const p = data.profile;
+                    document.getElementById('user-level-num').textContent = p.level || 1;
+                    document.getElementById('nav-xp-text').textContent = `${p.xp || 0}/${p.level * 250} XP`;
+                    const fillPct = Math.min(100, Math.round(((p.xp % 250) / 250) * 100));
+                    document.getElementById('nav-xp-fill').style.width = fillPct + '%';
+
+                    // Populate profile form inputs
+                    if (document.getElementById('prof-name')) document.getElementById('prof-name').value = p.name || 'Athlete';
+                    if (document.getElementById('prof-weight')) document.getElementById('prof-weight').value = p.weight_kg || 70;
+                    if (document.getElementById('prof-height')) document.getElementById('prof-height').value = p.height_cm || 175;
+                    if (document.getElementById('prof-target')) document.getElementById('prof-target').value = p.daily_rep_target || 50;
+                }
+            })
+            .catch(() => {});
+    }
+
+    fetchProfileData();
+
+    // Profile Modal Handlers
+    const profileModal = document.getElementById('profile-modal');
+    const profileToggleBtn = document.getElementById('profile-toggle-btn');
+    const closeProfileBtn = document.getElementById('close-profile-btn');
+    const cancelProfileBtn = document.getElementById('cancel-profile-btn');
+    const saveProfileBtn = document.getElementById('save-profile-btn');
+
+    if (profileToggleBtn) profileToggleBtn.addEventListener('click', () => profileModal.style.display = 'flex');
+    if (closeProfileBtn) closeProfileBtn.addEventListener('click', () => profileModal.style.display = 'none');
+    if (cancelProfileBtn) cancelProfileBtn.addEventListener('click', () => profileModal.style.display = 'none');
+
+    if (saveProfileBtn) {
+        saveProfileBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            const name = document.getElementById('prof-name').value;
+            const weight_kg = parseFloat(document.getElementById('prof-weight').value);
+            const height_cm = parseFloat(document.getElementById('prof-height').value);
+            const daily_rep_target = parseInt(document.getElementById('prof-target').value);
+
+            fetch('/api/profile', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, weight_kg, height_cm, daily_rep_target })
+            })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        fetchProfileData();
+                        profileModal.style.display = 'none';
+                        showToast('Profile settings saved! 💾', 'success');
+                    }
+                })
+                .catch(() => showToast('Failed to save profile.', 'error'));
+        });
+    }
+
+    // Camera Test Modal Handlers
+    const camTestModal = document.getElementById('cam-test-modal');
+    const camTestBtn = document.getElementById('cam-test-btn');
+    const closeCamTestBtn = document.getElementById('close-cam-test-btn');
+    const camTestOkBtn = document.getElementById('cam-test-ok-btn');
+
+    if (camTestBtn) camTestBtn.addEventListener('click', () => camTestModal.style.display = 'flex');
+    if (closeCamTestBtn) closeCamTestBtn.addEventListener('click', () => camTestModal.style.display = 'none');
+    if (camTestOkBtn) camTestOkBtn.addEventListener('click', () => camTestModal.style.display = 'none');
+
+    // Status polling with SFX triggers
     function checkStatus() {
         fetch('/get_status')
             .then(r => r.json())
@@ -326,6 +411,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         .then(res => res.json())
                         .then(sData => {
                             resetWorkoutUI();
+                            if (window.sfx) window.sfx.playSetComplete();
                             speak("Workout complete. Fantastic effort!");
                             if (sData && sData.summary) {
                                 displaySummaryReport(sData.summary);
@@ -338,25 +424,28 @@ document.addEventListener('DOMContentLoaded', function () {
                 currentSetEl.textContent = `${data.current_set} / ${data.total_sets}`;
                 currentRepsEl.textContent = `${data.current_reps} / ${data.rep_goal}`;
 
-                // Rep count voice announcement
+                // Rep count voice announcement & SFX
                 if (data.current_reps > lastRepCount && workoutRunning) {
                     lastRepCount = data.current_reps;
+                    if (window.sfx) window.sfx.playRep(lastRepCount);
                     speak(data.current_reps.toString());
                 }
 
                 // Set completion rest timer trigger
                 if (data.current_set > lastSetCompleted + 1 && lastSetCompleted > 0 && workoutRunning) {
                     lastSetCompleted = data.current_set - 1;
+                    if (window.sfx) window.sfx.playSetComplete();
                     triggerRestTimer(30);
                 }
 
-                // Form warnings voice feedback
+                // Form warnings voice & SFX feedback
                 if (data.warnings && data.warnings.length > 0 && workoutRunning) {
                     const activeWarning = data.warnings[0];
                     const currentTime = Date.now();
                     if (activeWarning !== lastWarningSpoken || (currentTime - lastWarningTime > 4500)) {
                         lastWarningSpoken = activeWarning;
                         lastWarningTime = currentTime;
+                        if (window.sfx) window.sfx.playWarning();
                         let speechText = activeWarning.replace(/[:⚠!]/g, ' ').trim();
                         speak(speechText);
                     }
@@ -384,6 +473,7 @@ document.addEventListener('DOMContentLoaded', function () {
         restTimerInterval = setInterval(() => {
             count--;
             restCountdownNum.textContent = count;
+            if (window.sfx) window.sfx.playRestBeep();
             if (count <= 0) {
                 clearInterval(restTimerInterval);
                 restOverlay.style.display = 'none';
@@ -407,6 +497,11 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('summary-sets').textContent = summary.completed_sets || 0;
         document.getElementById('summary-reps').textContent = summary.total_reps || 0;
         
+        if (document.getElementById('summary-kfi')) document.getElementById('summary-kfi').textContent = summary.kfi_score || 95;
+        if (document.getElementById('summary-rom')) document.getElementById('summary-rom').textContent = `${summary.rom_percentage || 90}%`;
+        if (document.getElementById('summary-calories')) document.getElementById('summary-calories').textContent = `${summary.calories_burned || 0} kcal`;
+        if (document.getElementById('summary-xp')) document.getElementById('summary-xp').textContent = `+${summary.xp_gained || 50} XP`;
+
         const accuracyEl = document.getElementById('summary-accuracy');
         if (accuracyEl) {
             accuracyEl.textContent = `${summary.form_accuracy}%`;
@@ -435,8 +530,15 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
 
+        if (summary.leveled_up && window.sfx) {
+            window.sfx.playLevelUp();
+            showToast('LEVEL UP! Congratulations! 🎉', 'success');
+        }
+
+        fetchProfileData();
         if (summaryModal) summaryModal.style.display = 'flex';
     }
+
 
     // Reset UI
     function resetWorkoutUI() {

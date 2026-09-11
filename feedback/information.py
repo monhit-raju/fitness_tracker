@@ -7,6 +7,8 @@ def get_exercise_info(exercise_type):
             "reps": 8,
             "sets": 1,
             "rest_time": "60 seconds",
+            "met_val": 4.0,
+            "target_rom": 120,
             "benefits": [
                 "Improves bicep and forearm strength",
                 "Enhances grip strength"
@@ -19,6 +21,8 @@ def get_exercise_info(exercise_type):
             "reps": 10,
             "sets": 1,
             "rest_time": "45 seconds",
+            "met_val": 8.0,
+            "target_rom": 90,
             "benefits": [
                 "Builds upper body strength",
                 "Improves core stability"
@@ -31,6 +35,8 @@ def get_exercise_info(exercise_type):
             "reps": 2,
             "sets": 3,
             "rest_time": "60 seconds",
+            "met_val": 6.0,
+            "target_rom": 95,
             "benefits": [
                 "Builds lower body strength",
                 "Improves mobility and balance"
@@ -43,6 +49,8 @@ def get_exercise_info(exercise_type):
             "reps": 10,
             "sets": 3,
             "rest_time": "45 seconds",
+            "met_val": 5.5,
+            "target_rom": 100,
             "benefits": [
                 "Enhances single-leg balance",
                 "Strengthens hips & thighs"
@@ -55,6 +63,8 @@ def get_exercise_info(exercise_type):
             "reps": 8,
             "sets": 3,
             "rest_time": "60 seconds",
+            "met_val": 5.0,
+            "target_rom": 155,
             "benefits": [
                 "Builds overhead shoulder power",
                 "Improves core stabilization"
@@ -63,4 +73,5 @@ def get_exercise_info(exercise_type):
     }
 
     return exercises.get(exercise_type, {})
+
 

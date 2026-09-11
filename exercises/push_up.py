@@ -11,14 +11,15 @@ class PushUp:
         self.stage   = None          # None -> "up" -> "down" -> "up"
 
         # Calibration state variables
-        self.calibrated = False
+        self.calibrated = True
         self.calibration_frames = []
         self.calibration_limit = 25
         self.standing_baseline = 160.0
 
         # Elbow flexion thresholds
-        self.angle_up   = 155        # straight (calibrated dynamically)
-        self.angle_down = 90         # bent (calibrated dynamically)
+        self.angle_up   = 150        # straight
+        self.angle_down = 95         # bent
+
 
         # Hysteresis frame counts
         self._up_frames_count = 0
@@ -149,18 +150,19 @@ class PushUp:
         if smooth_angle > self.angle_up:
             self._up_frames_count += 1
             self._down_frames_count = 0
-            if self._up_frames_count >= 3:
+            if self._up_frames_count >= 1:
                 if self.stage == "down":
                     self.counter += 1
                 self.stage = "up"
         elif smooth_angle < self.angle_down:
             self._down_frames_count += 1
             self._up_frames_count = 0
-            if self._down_frames_count >= 3:
+            if self._down_frames_count >= 1:
                 self.stage = "down"
         else:
             self._up_frames_count = 0
             self._down_frames_count = 0
+
 
         stage_label = {
             None:   "Get Ready",
